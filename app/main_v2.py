@@ -225,14 +225,13 @@ def safe_rate(numerator, denominator):
     return numerator / denominator if denominator != 0 else 0.0
 
 # データ読み込み
-@st.cache_data
+@st.cache_data(experimental_allow_widgets=True)
 def load_data():
     """ダミーデータを読み込む"""
     df = pd.read_csv("app/dummy_data.csv")
     df['event_timestamp'] = pd.to_datetime(df['event_timestamp'])
     df['event_date'] = pd.to_datetime(df['event_date'])
     return df
-
 
 # 比較期間のデータを取得する関数
 def get_comparison_data(df, current_start, current_end, comparison_type):
@@ -268,13 +267,12 @@ def safe_extract_lp_text_content(extractor_func, url):
         # モジュールがない場合のデフォルトの戻り値
         return {"headlines": [], "body_copy": [], "ctas": []}
 
-# アプリケーション全体で使うDataFrameをロード
-df = load_data()
-# --- 新規/リピート、CV/非CVの列を追加 ---
-df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
-conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
-df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
+# --- アプリケーションの初期化 ---
+# セッション状態でページごとのデータを管理
+if 'page_data' not in st.session_state:
+    st.session_state.page_data = {}
 
+df_original = load_data()
 st.sidebar.markdown(
     """
     <a href="?page=使用ガイド" target="_self" style="
@@ -387,26 +385,30 @@ def assign_channel(row):
 
     return 'Other' # どの条件にも当てはまらない場合
 
-df['channel'] = df.apply(assign_channel, axis=1)
+df_original['channel'] = df_original.apply(assign_channel, axis=1)
 
 # --- 参照元/メディア 列の作成 ---
 # twitterをXに置換
-df['utm_source_display'] = df['utm_source'].replace('twitter', 'X')
+df_original['utm_source_display'] = df_original['utm_source'].replace('twitter', 'X')
 
 # NaN値を '(none)' に置換
-df['utm_source_display'].fillna('(direct)', inplace=True)
-df['utm_medium'].fillna('(none)', inplace=True)
+df_original['utm_source_display'].fillna('(direct)', inplace=True)
+df_original['utm_medium'].fillna('(none)', inplace=True)
 
 # source / medium を作成
-df['source_medium'] = df['utm_source_display'] + ' / ' + df['utm_medium']
+df_original['source_medium'] = df_original['utm_source_display'] + ' / ' + df_original['utm_medium']
 
 # 論理的に不自然な組み合わせを除外 (例: direct / cpc)
-df = df[~((df['utm_source_display'] == '(direct)') & (df['utm_medium'] != '(none)'))]
+df_original = df_original[~((df_original['utm_source_display'] == '(direct)') & (df_original['utm_medium'] != '(none)'))]
 
 # 選択された分析項目に応じて表示を切り替え
 
 if selected_analysis == "全体サマリー":
     st.markdown('<div class="sub-header">全体サマリー</div>', unsafe_allow_html=True)
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("全体サマリー", df_original)
     
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
@@ -492,6 +494,26 @@ if selected_analysis == "全体サマリー":
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max())
 
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        summary_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="summary_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="summary_generate_data"):
+            with st.spinner(f"「{summary_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["全体サマリー"] = generate_training_data(start_date, end_date, summary_scenario)
+            st.rerun()
+
     # ページ上部にフィルターを配置ここまで
     comparison_type = None # 初期化
     # 期間フィルターのみを適用したDataFrame（テーブル表示用）
@@ -499,6 +521,11 @@ if selected_analysis == "全体サマリー":
         (df['event_date'] >= pd.to_datetime(start_date)) &
         (df['event_date'] <= pd.to_datetime(end_date))
     ]
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # KPIカードやグラフ用のデータフィルタリング（期間＋LP）
     filtered_df = df.copy()
@@ -1260,6 +1287,10 @@ if selected_analysis == "全体サマリー":
 elif selected_analysis == "ページ分析":
     st.markdown('<div class="sub-header">ページ分析</div>', unsafe_allow_html=True)
 
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("ページ分析", df_original)
+
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
@@ -1343,6 +1374,31 @@ elif selected_analysis == "ページ分析":
             start_date = st.date_input("開始日", df['event_date'].min(), key="page_analysis_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="page_analysis_end_date")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        page_analysis_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="page_analysis_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="page_analysis_generate_data"):
+            with st.spinner(f"「{page_analysis_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["ページ分析"] = generate_training_data(start_date, end_date, page_analysis_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # データフィルタリング
     filtered_df = df.copy()
@@ -1763,6 +1819,10 @@ elif selected_analysis == "ページ分析":
 elif selected_analysis == "広告分析":
     st.markdown('<div class="sub-header">広告分析</div>', unsafe_allow_html=True)
 
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("広告分析", df_original)
+
     # --- ページ上部の共通フィルター ---
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
     filter_cols_1 = st.columns(4)
@@ -1833,6 +1893,31 @@ elif selected_analysis == "広告分析":
             start_date = st.date_input("開始日", df['event_date'].min(), key="ad_analysis_start")
         with c2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="ad_analysis_end")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        ad_analysis_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="ad_analysis_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="ad_analysis_generate_data"):
+            with st.spinner(f"「{ad_analysis_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["広告分析"] = generate_training_data(start_date, end_date, ad_analysis_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # --- データフィルタリング ---
     filtered_df = df[
@@ -2055,7 +2140,12 @@ elif selected_analysis == "広告分析":
 
 # タブ4: A/Bテスト分析
 elif selected_analysis == "A/Bテスト分析":
-    filter_cols_1 = st.columns(4)
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("A/Bテスト分析", df_original)
+
+
     st.markdown('<div class="sub-header">A/Bテスト分析</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
@@ -2140,6 +2230,31 @@ elif selected_analysis == "A/Bテスト分析":
             start_date = st.date_input("開始日", df['event_date'].min(), key="ab_test_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="ab_test_end_date")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        ab_test_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="ab_test_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="ab_test_generate_data"):
+            with st.spinner(f"「{ab_test_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["A/Bテスト分析"] = generate_training_data(start_date, end_date, ab_test_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # データフィルタリング
     filtered_df = df.copy()
@@ -2563,7 +2678,12 @@ elif selected_analysis == "LPOの基礎知識":
         """)
 
 elif selected_analysis == "インタラクション分析":
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("インタラクション分析", df_original)
     st.markdown('<div class="sub-header">インタラクション分析</div>', unsafe_allow_html=True)
+
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True) # type: ignore
 
@@ -2647,6 +2767,31 @@ elif selected_analysis == "インタラクション分析":
             start_date = st.date_input("開始日", df['event_date'].min(), key="interaction_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="interaction_end_date")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        interaction_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="interaction_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="interaction_generate_data"):
+            with st.spinner(f"「{interaction_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["インタラクション分析"] = generate_training_data(start_date, end_date, interaction_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # データフィルタリング
     filtered_df = df.copy()
@@ -2897,7 +3042,12 @@ elif selected_analysis == "インタラクション分析":
 
 # タブ6: 動画・スクロール分析
 elif selected_analysis == "動画・スクロール分析":
-    filter_cols_1 = st.columns(4)
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("動画・スクロール分析", df_original)
+
+
     st.markdown('<div class="sub-header">動画・スクロール分析</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
@@ -2982,6 +3132,31 @@ elif selected_analysis == "動画・スクロール分析":
             start_date = st.date_input("開始日", df['event_date'].min(), key="video_scroll_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="video_scroll_end_date")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        video_scroll_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="video_scroll_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="video_scroll_generate_data"):
+            with st.spinner(f"「{video_scroll_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["動画・スクロール分析"] = generate_training_data(start_date, end_date, video_scroll_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # データフィルタリング
     filtered_df = df.copy()
@@ -3232,6 +3407,11 @@ elif selected_analysis == "動画・スクロール分析":
 # タブ6: 時系列分析
 elif selected_analysis == "時系列分析":
     st.markdown('<div class="sub-header">時系列分析</div>', unsafe_allow_html=True)
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("時系列分析", df_original)
+
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
 
@@ -3315,6 +3495,31 @@ elif selected_analysis == "時系列分析":
             start_date = st.date_input("開始日", df['event_date'].min(), key="timeseries_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="timeseries_end_date")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        timeseries_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="timeseries_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="timeseries_generate_data"):
+            with st.spinner(f"「{timeseries_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["時系列分析"] = generate_training_data(start_date, end_date, timeseries_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # データフィルタリング
     filtered_df = df.copy()
@@ -3554,7 +3759,12 @@ elif selected_analysis == "時系列分析":
 
 # タブ7: リアルタイム分析
 elif selected_analysis == "リアルタイムビュー":
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("リアルタイムビュー", df_original)
     st.markdown('<div class="sub-header">リアルタイムビュー</div>', unsafe_allow_html=True)
+    
     
     # 直近1時間のデータをフィルタリング
     one_hour_ago = df['event_timestamp'].max() - timedelta(hours=1)
@@ -3658,7 +3868,12 @@ elif selected_analysis == "リアルタイムビュー":
 
 # タブ8: カスタムオーディエンス
 elif selected_analysis == "デモグラフィック情報":
-    filter_cols_1 = st.columns(4)
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("デモグラフィック情報", df_original)
+
+
     st.markdown('<div class="sub-header">デモグラフィック情報</div>', unsafe_allow_html=True)
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True) # type: ignore
@@ -3934,7 +4149,7 @@ elif selected_analysis == "デモグラフィック情報":
         device_demo_df = pd.DataFrame({ # type: ignore
             'セッション数': device_sessions,
             'CV数': device_cv,
-            '平均滞在時間 (秒)': device_stay
+            '平均滞在時間 (秒)': device_stay,
         }).fillna(0).reset_index().rename(columns={'device_type': 'デバイス'}) # type: ignore
         device_demo_df['CVR (%)'] = device_demo_df.apply(lambda row: safe_rate(row['CV数'], row['セッション数']) * 100, axis=1)
 
@@ -4033,6 +4248,11 @@ elif selected_analysis == "デモグラフィック情報":
 # タブ9: AI提案
 elif selected_analysis == "AIによる分析・考察":
     st.markdown('<div class="sub-header">AI による分析・考察</div>', unsafe_allow_html=True)
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("AIによる分析・考察", df_original)
+
     # メインエリア: フィルターと比較設定
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
     filter_cols_1 = st.columns(4)
@@ -4114,6 +4334,31 @@ elif selected_analysis == "AIによる分析・考察":
             start_date = st.date_input("開始日", df['event_date'].min(), key="ai_analysis_start_date")
         with col2:
             end_date = st.date_input("終了日", df['event_date'].max(), key="ai_analysis_end_date")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        ai_analysis_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="ai_analysis_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="ai_analysis_generate_data"):
+            with st.spinner(f"「{ai_analysis_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["AIによる分析・考察"] = generate_training_data(start_date, end_date, ai_analysis_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     comparison_type = None # 初期化
     # データフィルタリング
@@ -5141,182 +5386,212 @@ elif selected_analysis == "アラート":
         st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
 
 elif selected_analysis == "瞬フォーム分析":
-     st.markdown('<div class="sub-header">瞬フォーム分析</div>', unsafe_allow_html=True)
- 
-     # --- フィルター設定 ---
-     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
-     filter_cols_1 = st.columns(4)
-     filter_cols_2 = st.columns(4)
- 
-     with filter_cols_1[0]:
-         period_options = ["今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"]
-         selected_period = st.selectbox("期間を選択", period_options, index=2, key="shun_form_period")
- 
-     with filter_cols_1[1]:
-         lp_options = sorted(df['page_location'].dropna().unique().tolist())
-         selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else None, key="shun_form_lp", disabled=not lp_options)
- 
-     with filter_cols_1[2]:
-         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-         selected_device = st.selectbox("デバイス選択", device_options, index=0, key="shun_form_device")
- 
-     with filter_cols_1[3]:
-         user_type_options = ["すべて", "新規", "リピート"]
-         selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="shun_form_user_type")
- 
-     with filter_cols_2[0]:
-         conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
-         selected_conversion_status = st.selectbox("CV/非CV", conversion_status_options, index=0, key="shun_form_conversion_status")
- 
-     with filter_cols_2[1]:
-         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-         selected_channel = st.selectbox("チャネル", channel_options, index=0, key="shun_form_channel")
- 
-     with filter_cols_2[2]:
-         source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
-         selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="shun_form_source_medium")
- 
-     # 期間設定
-     today = df['event_date'].max().date()
-     if selected_period == "今日":
-         start_date, end_date = today, today
-     elif selected_period == "昨日":
-         start_date, end_date = today - timedelta(days=1), today - timedelta(days=1)
-     elif selected_period == "過去7日間":
-         start_date, end_date = today - timedelta(days=6), today
-     elif selected_period == "過去14日間":
-         start_date, end_date = today - timedelta(days=13), today
-     elif selected_period == "過去30日間":
-         start_date, end_date = today - timedelta(days=29), today
-     elif selected_period == "今月":
-         start_date, end_date = today.replace(day=1), today
-     elif selected_period == "先月":
-         last_month_end = today.replace(day=1) - timedelta(days=1)
-         start_date, end_date = last_month_end.replace(day=1), last_month_end
-     elif selected_period == "全期間":
-         start_date, end_date = df['event_date'].min().date(), df['event_date'].max().date()
-     elif selected_period == "カスタム":
-         c1, c2 = st.columns(2)
-         with c1:
-             start_date = st.date_input("開始日", df['event_date'].min(), key="shun_form_start")
-         with c2:
-             end_date = st.date_input("終了日", df['event_date'].max(), key="shun_form_end")
- 
-     st.markdown("---")
- 
-     # データフィルタリング（現在はUIのみで、実際のデータには適用していません）
-     filtered_df = df[
-         (df['event_date'] >= pd.to_datetime(start_date)) &
-         (df['event_date'] <= pd.to_datetime(end_date))
-     ]
-     # ... 他のフィルターも同様に適用 ...
- 
-     # --- スコアカード ---
-     st.markdown('<div class="sub-header">スコアカード</div>', unsafe_allow_html=True)
-     col1, col2, col3, col4 = st.columns(4)
-     col5, col6, col7, col8 = st.columns(4)
-     
-     with col1:
-         st.metric("フォーム表示回数", "12,345")
-     with col2:
-         st.metric("フォーム表示直帰率", "12.3%")
-     with col3:
-         st.metric("フォーム送信率", "45.6%")
-     with col4:
-         st.metric("平均進行ページ数", "5.6")
-     with col5:
-         st.metric("平均滞在時間", "1:23")
-     with col6:
-         st.metric("ページ逆行率", "7.8%")
-     with col7:
-         st.metric("離脱防止POPから再開率", "89.0%")
-     with col8:
-         st.metric("一時保存からの再開率", "90.1%")
- 
-     # --- ページごとの分析 ---
-     st.markdown('<div class="sub-header">ページごとの分析</div>', unsafe_allow_html=True)
-     st.markdown('<div class="graph-description">各ページの滞在時間や逆行率などを確認し、ユーザーがどの質問でつまずいているか（ボトルネック）を特定します。</div>', unsafe_allow_html=True)
-     
-     # ダミーデータ
-     data = {
-         'ページ': ['ページ1', 'ページ2', 'ページ3', 'ページ4', 'ページ5'],
-         '平均滞在時間': ['0:10', '0:15', '0:12', '0:18', '0:20'],
-         'ページ逆行率': ['1.2%', '2.3%', '1.5%', '2.0%', '2.5%'],
-         '離脱防止POPから再開率': ['91.0%', '88.0%', '92.0%', '89.0%', '90.0%'],
-         '一時保存からの再開率': ['92.0%', '90.0%', '93.0%', '91.0%', '94.0%']
-     }
-     df_page = pd.DataFrame(data)
- 
-     st.dataframe(df_page, use_container_width=True)
- 
-     st.markdown("---")
- 
-     # --- AI分析と考察 ---
-     st.markdown("### AIによる分析と考察")
-     st.markdown('<div class="graph-description">瞬フォームのパフォーマンスデータに基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
- 
-     if 'shun_form_ai_open' not in st.session_state:
-         st.session_state.shun_form_ai_open = False
- 
-     if st.button("AI分析を実行", key="shun_form_ai_btn", type="primary", use_container_width=True):
-         st.session_state.shun_form_ai_open = True
- 
-     if st.session_state.shun_form_ai_open:
-         with st.container():
-             with st.spinner("AIがフォームデータを分析中..."):
-                 st.markdown("#### 1. 現状の評価")
-                 st.info("""
-                 フォーム全体のパフォーマンスを分析した結果、**フォーム送信率（45.6%）** に改善の余地があることが分かりました。
-                 特に、**ページ3** での平均滞在時間が短く、ページ逆行率が他のページより高い傾向にあります。このページがユーザーにとってのボトルネックとなっている可能性が高いです。
-                 一方で、離脱防止POPや一時保存からの再開率は高く、フォームを完了したいというユーザーの意欲は高いと推察されます。
-                 """)
- 
-                 st.markdown("#### 2. 今後の考察と改善案")
-                 st.warning("""
-                 **ページ3の質問内容の見直しが最優先課題です。**
-                 - **考察**: ページ3の質問がユーザーにとって分かりにくい、または答えるのが面倒だと感じさせている可能性があります。
-                 - **改善案**:
-                     1. **質問文の簡略化**: より直感的で分かりやすい言葉に修正します。
-                     2. **選択肢の見直し**: 選択肢が多すぎる場合は減らす、またはラジオボタンからプルダウンに変更するなど、UIを改善します。
-                     3. **入力補助機能の追加**: 例えば、住所入力であれば郵便番号からの自動入力機能を追加します。
-                 
-                 これらの改善案についてA/Bテストを実施し、最も効果的な変更を特定することをお勧めします。
-                 """)
- 
-             if st.button("AI分析を閉じる", key="shun_form_ai_close"):
-                 st.session_state.shun_form_ai_open = False
- 
-     # --- よくある質問 ---
-     st.markdown("#### このページの分析について質問する")
-     if 'shun_form_faq_toggle' not in st.session_state:
-         st.session_state.shun_form_faq_toggle = {1: False, 2: False, 3: False, 4: False}
- 
-     faq_cols = st.columns(2)
-     with faq_cols[0]:
-         if st.button("フォームのどこで離脱が多い？", key="faq_shun_form_1", use_container_width=True):
-             st.session_state.shun_form_faq_toggle[1] = not st.session_state.shun_form_faq_toggle[1]
-             st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[3], st.session_state.shun_form_faq_toggle[4] = False, False, False
-         if st.session_state.shun_form_faq_toggle[1]:
-             st.info("ページごとの分析表で「ページ逆行率」が高いページや、「平均滞在時間」が極端に短いページが離脱の多いボトルネックです。このダミーデータでは「ページ3」が該当します。")
- 
-         if st.button("フォーム送信率を上げるには？", key="faq_shun_form_3", use_container_width=True):
-             st.session_state.shun_form_faq_toggle[3] = not st.session_state.shun_form_faq_toggle[3]
-             st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[4] = False, False, False
-         if st.session_state.shun_form_faq_toggle[3]:
-             st.info("入力項目を減らす、必須項目を分かりやすくする、入力エラーをリアルタイムで表示する、などのEFO（入力フォーム最適化）施策が有効です。また、「一時保存からの再開率」が低い場合は、その機能をより目立たせることも重要です。")
- 
-     with faq_cols[1]:
-         if st.button("平均進行ページ数が少ない原因は？", key="faq_shun_form_2", use_container_width=True):
-             st.session_state.shun_form_faq_toggle[2] = not st.session_state.shun_form_faq_toggle[2]
-             st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[3], st.session_state.shun_form_faq_toggle[4] = False, False, False
-         if st.session_state.shun_form_faq_toggle[2]:
-             st.info("フォームの序盤（ページ1や2）でユーザーの興味を引けていない、または質問の意図が伝わっていない可能性があります。フォーム導入前のLPの訴求と、フォーム序盤の質問内容に一貫性があるか確認しましょう。")
- 
-         if st.button("離脱防止POPは効果がある？", key="faq_shun_form_4", use_container_width=True):
-             st.session_state.shun_form_faq_toggle[4] = not st.session_state.shun_form_faq_toggle[4]
-             st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[3] = False, False, False
-         if st.session_state.shun_form_faq_toggle[4]:
-             st.info("「離脱防止POPから再開率」の指標で効果を測定できます。この数値が高い（例: 89.0%）場合、POPが表示されることで多くのユーザーがフォーム入力に復帰しており、効果的であると言えます。")
+
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("瞬フォーム分析", df_original)
+
+    st.markdown('<div class="sub-header">瞬フォーム分析</div>', unsafe_allow_html=True)
+
+    # --- フィルター設定 ---
+    st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
+    filter_cols_1 = st.columns(4)
+    filter_cols_2 = st.columns(4)
+
+    with filter_cols_1[0]:
+        period_options = ["今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"]
+        selected_period = st.selectbox("期間を選択", period_options, index=2, key="shun_form_period")
+
+    with filter_cols_1[1]:
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else None, key="shun_form_lp", disabled=not lp_options)
+
+    with filter_cols_1[2]:
+        device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
+        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="shun_form_device")
+
+    with filter_cols_1[3]:
+        user_type_options = ["すべて", "新規", "リピート"]
+        selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="shun_form_user_type")
+
+    with filter_cols_2[0]:
+        conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
+        selected_conversion_status = st.selectbox("CV/非CV", conversion_status_options, index=0, key="shun_form_conversion_status")
+
+    with filter_cols_2[1]:
+        channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
+        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="shun_form_channel")
+
+    with filter_cols_2[2]:
+        source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
+        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="shun_form_source_medium")
+
+    # 期間設定
+    today = df['event_date'].max().date()
+    if selected_period == "今日":
+        start_date, end_date = today, today
+    elif selected_period == "昨日":
+        start_date, end_date = today - timedelta(days=1), today - timedelta(days=1)
+    elif selected_period == "過去7日間":
+        start_date, end_date = today - timedelta(days=6), today
+    elif selected_period == "過去14日間":
+        start_date, end_date = today - timedelta(days=13), today
+    elif selected_period == "過去30日間":
+        start_date, end_date = today - timedelta(days=29), today
+    elif selected_period == "今月":
+        start_date, end_date = today.replace(day=1), today
+    elif selected_period == "先月":
+        last_month_end = today.replace(day=1) - timedelta(days=1)
+        start_date, end_date = last_month_end.replace(day=1), last_month_end
+    elif selected_period == "全期間":
+        start_date, end_date = df['event_date'].min().date(), df['event_date'].max().date()
+    elif selected_period == "カスタム":
+        c1, c2 = st.columns(2)
+        with c1:
+            start_date = st.date_input("開始日", df['event_date'].min(), key="shun_form_start")
+        with c2:
+            end_date = st.date_input("終了日", df['event_date'].max(), key="shun_form_end")
+
+    st.markdown("---")
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+    
+    learning_cols = st.columns(4)
+    with learning_cols[0]:
+        scenario_options = ['好調', '普通', '不調']
+        shun_form_scenario = st.selectbox(
+            "データシナリオを選択",
+            scenario_options,
+            index=1,
+            key="shun_form_scenario_selector"
+        )
+    with learning_cols[1]:
+        if st.button("ダミーデータを生成", key="shun_form_generate_data"):
+            with st.spinner(f"「{shun_form_scenario}」シナリオのデータを生成中..."):
+                # このページ専用のデータを生成してセッション状態に保存
+                st.session_state.page_data["瞬フォーム分析"] = generate_training_data(start_date, end_date, shun_form_scenario)
+            st.rerun()
+
+    # --- 新規/リピート、CV/非CVの列を追加 ---
+    df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
+    conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
+    df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
+
+    # データフィルタリング（現在はUIのみで、実際のデータには適用していません）
+    filtered_df = df[
+        (df['event_date'] >= pd.to_datetime(start_date)) &
+        (df['event_date'] <= pd.to_datetime(end_date))
+    ]
+    # ... 他のフィルターも同様に適用 ...
+
+    # --- スコアカード ---
+    st.markdown('<div class="sub-header">スコアカード</div>', unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+    col5, col6, col7, col8 = st.columns(4)
+    
+    with col1:
+        st.metric("フォーム表示回数", "12,345")
+    with col2:
+        st.metric("フォーム表示直帰率", "12.3%")
+    with col3:
+        st.metric("フォーム送信率", "45.6%")
+    with col4:
+        st.metric("平均進行ページ数", "5.6")
+    with col5:
+        st.metric("平均滞在時間", "1:23")
+    with col6:
+        st.metric("ページ逆行率", "7.8%")
+    with col7:
+        st.metric("離脱防止POPから再開率", "89.0%")
+    with col8:
+        st.metric("一時保存からの再開率", "90.1%")
+
+    # --- ページごとの分析 ---
+    st.markdown('<div class="sub-header">ページごとの分析</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">各ページの滞在時間や逆行率などを確認し、ユーザーがどの質問でつまずいているか（ボトルネック）を特定します。</div>', unsafe_allow_html=True)
+    
+    # ダミーデータ
+    data = {
+        'ページ': ['ページ1', 'ページ2', 'ページ3', 'ページ4', 'ページ5'],
+        '平均滞在時間': ['0:10', '0:15', '0:12', '0:18', '0:20'],
+        'ページ逆行率': ['1.2%', '2.3%', '1.5%', '2.0%', '2.5%'],
+        '離脱防止POPから再開率': ['91.0%', '88.0%', '92.0%', '89.0%', '90.0%'],
+        '一時保存からの再開率': ['92.0%', '90.0%', '93.0%', '91.0%', '94.0%']
+    }
+    df_page = pd.DataFrame(data)
+
+    st.dataframe(df_page, use_container_width=True)
+
+    st.markdown("---")
+
+    # --- AI分析と考察 ---
+    st.markdown("### AIによる分析と考察")
+    st.markdown('<div class="graph-description">瞬フォームのパフォーマンスデータに基づき、AIが現状の評価と改善のための考察を提示します。</div>', unsafe_allow_html=True)
+
+    if 'shun_form_ai_open' not in st.session_state:
+        st.session_state.shun_form_ai_open = False
+
+    if st.button("AI分析を実行", key="shun_form_ai_btn", type="primary", use_container_width=True):
+        st.session_state.shun_form_ai_open = True
+
+    if st.session_state.shun_form_ai_open:
+        with st.container():
+            with st.spinner("AIがフォームデータを分析中..."):
+                st.markdown("#### 1. 現状の評価")
+                st.info("""
+                フォーム全体のパフォーマンスを分析した結果、**フォーム送信率（45.6%）** に改善の余地があることが分かりました。
+                特に、**ページ3** での平均滞在時間が短く、ページ逆行率が他のページより高い傾向にあります。このページがユーザーにとってのボトルネックとなっている可能性が高いです。
+                一方で、離脱防止POPや一時保存からの再開率は高く、フォームを完了したいというユーザーの意欲は高いと推察されます。
+                """)
+
+                st.markdown("#### 2. 今後の考察と改善案")
+                st.warning("""
+                **ページ3の質問内容の見直しが最優先課題です。**
+                - **考察**: ページ3の質問がユーザーにとって分かりにくい、または答えるのが面倒だと感じさせている可能性があります。
+                - **改善案**:
+                    1. **質問文の簡略化**: より直感的で分かりやすい言葉に修正します。
+                    2. **選択肢の見直し**: 選択肢が多すぎる場合は減らす、またはラジオボタンからプルダウンに変更するなど、UIを改善します。
+                    3. **入力補助機能の追加**: 例えば、住所入力であれば郵便番号からの自動入力機能を追加します。
+                
+                これらの改善案についてA/Bテストを実施し、最も効果的な変更を特定することをお勧めします。
+                """)
+
+            if st.button("AI分析を閉じる", key="shun_form_ai_close"):
+                st.session_state.shun_form_ai_open = False
+
+    # --- よくある質問 ---
+    st.markdown("#### このページの分析について質問する")
+    if 'shun_form_faq_toggle' not in st.session_state:
+        st.session_state.shun_form_faq_toggle = {1: False, 2: False, 3: False, 4: False}
+
+    faq_cols = st.columns(2)
+    with faq_cols[0]:
+        if st.button("フォームのどこで離脱が多い？", key="faq_shun_form_1", use_container_width=True):
+            st.session_state.shun_form_faq_toggle[1] = not st.session_state.shun_form_faq_toggle[1]
+            st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[3], st.session_state.shun_form_faq_toggle[4] = False, False, False
+        if st.session_state.shun_form_faq_toggle[1]:
+            st.info("ページごとの分析表で「ページ逆行率」が高いページや、「平均滞在時間」が極端に短いページが離脱の多いボトルネックです。このダミーデータでは「ページ3」が該当します。")
+
+        if st.button("フォーム送信率を上げるには？", key="faq_shun_form_3", use_container_width=True):
+            st.session_state.shun_form_faq_toggle[3] = not st.session_state.shun_form_faq_toggle[3]
+            st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[4] = False, False, False
+        if st.session_state.shun_form_faq_toggle[3]:
+            st.info("入力項目を減らす、必須項目を分かりやすくする、入力エラーをリアルタイムで表示する、などのEFO（入力フォーム最適化）施策が有効です。また、「一時保存からの再開率」が低い場合は、その機能をより目立たせることも重要です。")
+
+    with faq_cols[1]:
+        if st.button("平均進行ページ数が少ない原因は？", key="faq_shun_form_2", use_container_width=True):
+            st.session_state.shun_form_faq_toggle[2] = not st.session_state.shun_form_faq_toggle[2]
+            st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[3], st.session_state.shun_form_faq_toggle[4] = False, False, False
+        if st.session_state.shun_form_faq_toggle[2]:
+            st.info("フォームの序盤（ページ1や2）でユーザーの興味を引けていない、または質問の意図が伝わっていない可能性があります。フォーム導入前のLPの訴求と、フォーム序盤の質問内容に一貫性があるか確認しましょう。")
+
+        if st.button("離脱防止POPは効果がある？", key="faq_shun_form_4", use_container_width=True):
+            st.session_state.shun_form_faq_toggle[4] = not st.session_state.shun_form_faq_toggle[4]
+            st.session_state.shun_form_faq_toggle[1], st.session_state.shun_form_faq_toggle[2], st.session_state.shun_form_faq_toggle[3] = False, False, False
+        if st.session_state.shun_form_faq_toggle[4]:
+            st.info("「離脱防止POPから再開率」の指標で効果を測定できます。この数値が高い（例: 89.0%）場合、POPが表示されることで多くのユーザーがフォーム入力に復帰しており、効果的であると言えます。")
 
 
 # フッター
