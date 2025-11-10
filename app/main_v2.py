@@ -10,9 +10,6 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
 
-# トレーニングデータ生成関数をインポート
-from generate_training_data import generate_training_data
-
 try:
     from capture_lp import extract_lp_text_content
 except ImportError:
@@ -228,53 +225,13 @@ def safe_rate(numerator, denominator):
     return numerator / denominator if denominator != 0 else 0.0
 
 # データ読み込み
-# @st.cache_data # 動的生成のためキャッシュは使わない
-# def load_data():
-#     """ダミーデータを読み込む"""
-#     df = pd.read_csv("app/dummy_data.csv")
-#     df['event_timestamp'] = pd.to_datetime(df['event_timestamp'])
-#     df['event_date'] = pd.to_datetime(df['event_date'])
-#     return df
-
-# --- データ読み込み/生成ロジック ---
-def load_or_generate_data(start_date, end_date, scenario):
-    """
-    st.session_stateにデータがあればそれを使い、なければ生成する。
-    """
-    # ボタンが押されたら新しいデータを生成
-    if st.session_state.get('generate_data_button_clicked', False):
-        with st.spinner(f"「{scenario}」シナリオのデータを生成中..."):
-            st.session_state['df_training'] = generate_training_data(start_date, end_date, scenario)
-            st.session_state['scenario'] = scenario
-            st.session_state['start_date'] = start_date
-            st.session_state['end_date'] = end_date
-
-
-# --- 学習用ダミーデータ生成UI ---
-st.sidebar.markdown("### **学習用ダミーデータ生成**")
-st.sidebar.markdown(
-    """
-    <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
-    シナリオを選択してボタンを押すと、分析に使うデータが動的に生成されます。
-    </div>
-    """, unsafe_allow_html=True)
-
-scenario_options = ['好調', '普通', '不調']
-selected_scenario = st.sidebar.selectbox(
-    "① データシナリオを選択",
-    scenario_options,
-    index=scenario_options.index(st.session_state.get('scenario', '普通')), # 現在のシナリオをデフォルトに
-    key="scenario_selector"
-)
-
-if st.sidebar.button("② 学習用データを生成", use_container_width=True, type="primary"):
-    st.session_state['generate_data_button_clicked'] = True
-    # データ生成ロジックを直接呼び出す
-    today_for_data = datetime.now().date()
-    load_or_generate_data(today_for_data - timedelta(days=29), today_for_data, selected_scenario)
-    st.rerun() # データを再生成してページをリフレッシュ
-else:
-    st.session_state['generate_data_button_clicked'] = False
+@st.cache_data
+def load_data():
+    """ダミーデータを読み込む"""
+    df = pd.read_csv("app/dummy_data.csv")
+    df['event_timestamp'] = pd.to_datetime(df['event_timestamp'])
+    df['event_date'] = pd.to_datetime(df['event_date'])
+    return df
 
 
 # 比較期間のデータを取得する関数
@@ -311,21 +268,12 @@ def safe_extract_lp_text_content(extractor_func, url):
         # モジュールがない場合のデフォルトの戻り値
         return {"headlines": [], "body_copy": [], "ctas": []}
 
-# --- データ未生成時の処理 ---
-if 'df_training' not in st.session_state:
-    st.markdown('<div class="sub-header">分析を開始してください</div>', unsafe_allow_html=True)
-    st.warning("分析を開始するには、まずサイドバーの「学習用ダミーデータ生成」ボタンを押してデータを生成してください。")
-    st.stop() # ここでスクリプトの実行を停止
-
-
-# アプリケーション全体で使うDataFrameを st.session_state から取得
-df = st.session_state['df_training']
+# アプリケーション全体で使うDataFrameをロード
+df = load_data()
 # --- 新規/リピート、CV/非CVの列を追加 ---
 df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
 conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
 df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
-st.sidebar.info(f"現在のシナリオ: **{st.session_state['scenario']}**\n\nデータ期間: {st.session_state['start_date']} ~ {st.session_state['end_date']}")
-
 
 st.sidebar.markdown(
     """
@@ -5373,4 +5321,4 @@ elif selected_analysis == "瞬フォーム分析":
 
 # フッター
 st.markdown("---")
-st.markdown("**瞬ジェネ AIアナライザー** - Powered by Streamlit & Gemini 2.5 Pro")初
+st.markdown("**瞬ジェネ AIアナライザー** - Powered by Streamlit & Gemini 2.5 Pro")
