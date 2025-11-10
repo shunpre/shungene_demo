@@ -1,0 +1,21 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "プレビューを開始 (Streamlit)",
+            "type": "shell",
+            "command": "python3 -m streamlit run app/main_v2.py",
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "変更をGitHubに保存",
+            "type": "shell",
+            "command": "git add . && git commit",
+            "problemMatcher": []
+        }
+    ]
+}
