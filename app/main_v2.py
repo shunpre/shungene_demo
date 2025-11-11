@@ -21,7 +21,7 @@ from generate_dummy_data import generate_dummy_data
 # ページ設定
 st.set_page_config(
     page_title="瞬ジェネ AIアナライザー",
-    page_icon="https://shungene.lm-c.jp/favicon.png",
+    page_icon="https://shungene.lm-c.jp/favicon02.png",
     layout="wide",
     # PCでは常に展開された状態にするため "expanded" に固定
     initial_sidebar_state="expanded",
@@ -374,6 +374,8 @@ def assign_channel(row):
 # セッションに生成されたデータがあればそれを使う。なければ元のデータを使う。
 if 'generated_data' in st.session_state:
     df = st.session_state.generated_data
+    # ダミーデータ生成後は event_date が date 型なので、datetime 型に変換する
+    df['event_date'] = pd.to_datetime(df['event_date'])
 else:
     df = df_original
 # デフォルトのページ（URLに何もない場合）
