@@ -3737,7 +3737,26 @@ elif selected_analysis == "リアルタイムビュー":
     df = st.session_state.page_data.get("リアルタイムビュー", df_original)
     st.markdown('<div class="sub-header">リアルタイムビュー</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">サイト全体の直近1時間の活動状況をリアルタイムで確認できます。この分析は上部のフィルター設定の影響を受けません。</div>', unsafe_allow_html=True)
-    
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+
+    scenario_options = ['好調', '普通', '不調']
+    realtime_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="realtime_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="realtime_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{realtime_scenario}」シナリオのデータを生成中..."):
+            # このページはフィルターがないため、直近7日間のデータを生成
+            end_date_gen = df_original['event_date'].max().date()
+            start_date_gen = end_date_gen - timedelta(days=6)
+            st.session_state.page_data["リアルタイムビュー"] = generate_training_data(start_date_gen, end_date_gen, realtime_scenario)
+        st.rerun()
+    st.markdown("---")
     
     # 直近1時間のデータをフィルタリング
     one_hour_ago = df['event_timestamp'].max() - timedelta(hours=1)
@@ -5214,6 +5233,26 @@ elif selected_analysis == "FAQ":
 elif selected_analysis == "アラート":
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">主要指標の急な変化や異常を自動で検知し、お知らせします。この分析は、日次の全体パフォーマンスに基づいています。</div>', unsafe_allow_html=True)
+
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+
+    scenario_options = ['好調', '普通', '不調']
+    alert_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="alert_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="alert_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{alert_scenario}」シナリオのデータを生成中..."):
+            # このページはフィルターがないため、直近30日間のデータを生成
+            end_date_gen = df_original['event_date'].max().date()
+            start_date_gen = end_date_gen - timedelta(days=29)
+            st.session_state.page_data["アラート"] = generate_training_data(start_date_gen, end_date_gen, alert_scenario)
+        st.rerun()
+    st.markdown("---")
 
     # --- デモ用アラート（高） ---
     st.markdown("#### 重要度：高")
