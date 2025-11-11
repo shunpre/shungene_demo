@@ -8,13 +8,14 @@ import numpy as np
 from datetime import datetime, timedelta
 import random
 
-def generate_dummy_data(num_events=5000, num_days=30):
+def generate_dummy_data(num_sessions=10000, num_days=30, base_cvr=0.05):
     """
     リアルなスワイプLPイベントデータを生成
     
     Args:
-        num_events: 生成するイベント数
+        num_sessions: 生成するセッション数
         num_days: 過去何日分のデータを生成するか
+        base_cvr: 基準となるコンバージョン率
     
     Returns:
         pd.DataFrame: ダミーデータ
@@ -24,8 +25,11 @@ def generate_dummy_data(num_events=5000, num_days=30):
     end_date = datetime.now()
     start_date = end_date - timedelta(days=num_days)
     
-    # ユーザー数（セッション数の約1/3）
-    num_users = num_events // 15
+    # イベント総数をセッション数に基づいて動的に計算（1セッションあたり平均10イベントと仮定）
+    num_events = num_sessions * 10
+
+    # ユーザー数（セッション数の約1/5）
+    num_users = num_sessions // 5
     user_ids = [f"user_{i:06d}" for i in range(num_users)]
     
     # LP URL
@@ -171,8 +175,8 @@ def generate_dummy_data(num_events=5000, num_days=30):
                 test_p_values[test_key] = 1.0 if ab_variant == 'A' else random.choices(p_value_options, weights=[0.1, 0.2, 0.2, 0.5])[0]
             p_value = test_p_values[test_key]
         
-        # コンバージョン（5%の確率）
-        is_conversion = random.random() < 0.05
+        # コンバージョン（引数で指定されたCVRを基準に）
+        is_conversion = random.random() < base_cvr
         if is_conversion and event_name == "conversion":
             cv_type = random.choice(["primary", "micro"])
             cv_value = random.uniform(1000, 50000)
