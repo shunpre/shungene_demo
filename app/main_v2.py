@@ -370,15 +370,23 @@ def assign_channel(row):
 
     return 'Other' # どの条件にも当てはまらない場合
 
-# --- dfを決定 ---
-# セッションに生成されたデータがあればそれを使う。なければ元のデータを使う。
+# --- 分析対象のDataFrameを決定 ---
+# セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
 if 'generated_data' in st.session_state:
     df = st.session_state.generated_data
     # ダミーデータ生成後は event_date が date 型なので、datetime 型に変換する
     df['event_date'] = pd.to_datetime(df['event_date'])
 else:
     df = df_original
-# デフォルトのページ（URLに何もない場合）
+
+# グルーピングされたメニュー項目
+menu_groups = {
+    "AIアナライザー": ["AIによる分析・考察"],
+    "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
+    "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
+    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
+    "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
+}
 
 # --- 共通の前処理 ---
 # channel列を追加
@@ -396,6 +404,7 @@ df = df[~((df['utm_source_display'] == '(direct)') & (df['utm_medium'] != '(none
 
 DEFAULT_PAGE = "使用ガイド"
 
+# URLクエリから表示するページを取得
 try:
     # Streamlit 1.10.0以降の推奨される方法
     query_params = st.query_params.to_dict()
@@ -404,22 +413,10 @@ except AttributeError:
     # 古いStreamlitバージョン向けのフォールバック
     query_params = st.experimental_get_query_params()
     # experimental_get_query_paramsは値がリストで返されるため、最初の要素を取得
-    if "page" in query_params and query_params["page"]:
-        selected_analysis = query_params["page"][0]
-    else:
-        selected_analysis = DEFAULT_PAGE
+    selected_analysis = query_params.get("page", [DEFAULT_PAGE])[0]
 
 # 他の処理がst.session_stateを参照している場合に備え、同期させる
 st.session_state.selected_analysis = selected_analysis
-
-# グルーピングされたメニュー項目
-menu_groups = {
-    "AIアナライザー": ["AIによる分析・考察"],
-    "基本分析": ["リアルタイムビュー", "全体サマリー", "時系列分析", "デモグラフィック情報", "アラート"],
-    "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
-    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
-    "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
-}
 
 for group_name, items in menu_groups.items():
     st.sidebar.markdown(f"**{group_name}**")
