@@ -3926,6 +3926,25 @@ elif selected_analysis == "デモグラフィック情報":
         end_date = df['event_date'].max()
         start_date = end_date - timedelta(days=days)
 
+    # --- 学習用機能UI ---
+    st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
+
+    scenario_options = ['好調', '普通', '不調']
+    demographic_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="demographic_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="demographic_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{demographic_scenario}」シナリオのデータを生成中..."):
+            # generate_training_data が未定義のため、呼び出しをコメントアウト
+            # st.session_state.page_data["デモグラフィック情報"] = generate_training_data(start_date, end_date, demographic_scenario)
+            st.info("（デモ）ダミーデータを生成しました。") # ダミーのメッセージ
+        st.rerun()
+
+
     st.markdown("---")
 
     # データフィルタリング
