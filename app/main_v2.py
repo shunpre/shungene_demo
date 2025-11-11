@@ -498,21 +498,17 @@ if selected_analysis == "全体サマリー":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        summary_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="summary_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="summary_generate_data"):
-            with st.spinner(f"「{summary_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["全体サマリー"] = generate_training_data(start_date, end_date, summary_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    summary_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="summary_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="summary_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{summary_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["全体サマリー"] = generate_training_data(start_date, end_date, summary_scenario)
+        st.rerun()
 
     # ページ上部にフィルターを配置ここまで
     comparison_type = None # 初期化
@@ -1379,21 +1375,17 @@ elif selected_analysis == "ページ分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        page_analysis_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="page_analysis_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="page_analysis_generate_data"):
-            with st.spinner(f"「{page_analysis_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["ページ分析"] = generate_training_data(start_date, end_date, page_analysis_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    page_analysis_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="page_analysis_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="page_analysis_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{page_analysis_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["ページ分析"] = generate_training_data(start_date, end_date, page_analysis_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -1898,21 +1890,17 @@ elif selected_analysis == "広告分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        ad_analysis_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="ad_analysis_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="ad_analysis_generate_data"):
-            with st.spinner(f"「{ad_analysis_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["広告分析"] = generate_training_data(start_date, end_date, ad_analysis_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    ad_analysis_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="ad_analysis_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="ad_analysis_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{ad_analysis_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["広告分析"] = generate_training_data(start_date, end_date, ad_analysis_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -2235,21 +2223,17 @@ elif selected_analysis == "A/Bテスト分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        ab_test_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="ab_test_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="ab_test_generate_data"):
-            with st.spinner(f"「{ab_test_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["A/Bテスト分析"] = generate_training_data(start_date, end_date, ab_test_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    ab_test_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="ab_test_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="ab_test_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{ab_test_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["A/Bテスト分析"] = generate_training_data(start_date, end_date, ab_test_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -2772,21 +2756,17 @@ elif selected_analysis == "インタラクション分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        interaction_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="interaction_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="interaction_generate_data"):
-            with st.spinner(f"「{interaction_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["インタラクション分析"] = generate_training_data(start_date, end_date, interaction_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    interaction_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="interaction_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="interaction_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{interaction_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["インタラクション分析"] = generate_training_data(start_date, end_date, interaction_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -3137,21 +3117,17 @@ elif selected_analysis == "動画・スクロール分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        video_scroll_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="video_scroll_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="video_scroll_generate_data"):
-            with st.spinner(f"「{video_scroll_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["動画・スクロール分析"] = generate_training_data(start_date, end_date, video_scroll_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    video_scroll_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="video_scroll_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="video_scroll_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{video_scroll_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["動画・スクロール分析"] = generate_training_data(start_date, end_date, video_scroll_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -3500,21 +3476,17 @@ elif selected_analysis == "時系列分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        timeseries_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="timeseries_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="timeseries_generate_data"):
-            with st.spinner(f"「{timeseries_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["時系列分析"] = generate_training_data(start_date, end_date, timeseries_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    timeseries_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="timeseries_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="timeseries_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{timeseries_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["時系列分析"] = generate_training_data(start_date, end_date, timeseries_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -3764,6 +3736,7 @@ elif selected_analysis == "リアルタイムビュー":
     # このページ用の学習データが生成されていればそれを使う
     df = st.session_state.page_data.get("リアルタイムビュー", df_original)
     st.markdown('<div class="sub-header">リアルタイムビュー</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">サイト全体の直近1時間の活動状況をリアルタイムで確認できます。この分析は上部のフィルター設定の影響を受けません。</div>', unsafe_allow_html=True)
     
     
     # 直近1時間のデータをフィルタリング
@@ -4339,21 +4312,17 @@ elif selected_analysis == "AIによる分析・考察":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        ai_analysis_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="ai_analysis_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="ai_analysis_generate_data"):
-            with st.spinner(f"「{ai_analysis_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["AIによる分析・考察"] = generate_training_data(start_date, end_date, ai_analysis_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    ai_analysis_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="ai_analysis_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="ai_analysis_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{ai_analysis_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["AIによる分析・考察"] = generate_training_data(start_date, end_date, ai_analysis_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
@@ -5458,21 +5427,17 @@ elif selected_analysis == "瞬フォーム分析":
     st.markdown('<div class="sub-header">学習用機能</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータはこのページ内でのみ有効です。</div>', unsafe_allow_html=True)
     
-    learning_cols = st.columns(4)
-    with learning_cols[0]:
-        scenario_options = ['好調', '普通', '不調']
-        shun_form_scenario = st.selectbox(
-            "データシナリオを選択",
-            scenario_options,
-            index=1,
-            key="shun_form_scenario_selector"
-        )
-    with learning_cols[1]:
-        if st.button("ダミーデータを生成", key="shun_form_generate_data"):
-            with st.spinner(f"「{shun_form_scenario}」シナリオのデータを生成中..."):
-                # このページ専用のデータを生成してセッション状態に保存
-                st.session_state.page_data["瞬フォーム分析"] = generate_training_data(start_date, end_date, shun_form_scenario)
-            st.rerun()
+    scenario_options = ['好調', '普通', '不調']
+    shun_form_scenario = st.selectbox(
+        "データシナリオを選択",
+        scenario_options,
+        index=1,
+        key="shun_form_scenario_selector"
+    )
+    if st.button("ダミーデータを生成", key="shun_form_generate_data", type="primary", use_container_width=True):
+        with st.spinner(f"「{shun_form_scenario}」シナリオのデータを生成中..."):
+            st.session_state.page_data["瞬フォーム分析"] = generate_training_data(start_date, end_date, shun_form_scenario)
+        st.rerun()
 
     # --- 新規/リピート、CV/非CVの列を追加 ---
     df['user_type'] = np.where(df['ga_session_number'] == 1, '新規', 'リピート')
