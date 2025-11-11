@@ -13,10 +13,10 @@ import numpy as np
 try:
     from capture_lp import extract_lp_text_content
 except ImportError:
-    extract_lp_text_content = None
+    extract_lp_text_content = None # type: ignore
 import time # ファイルの先頭でインポート
 # scipyをインポート（A/Bテストの有意差検定で使用）
-from generate_dummy_data import generate_dummy_data
+from app.generate_dummy_data import generate_dummy_data
 
 # ページ設定
 st.set_page_config(
@@ -298,23 +298,15 @@ global_scenario = st.sidebar.selectbox(
 )
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
-        # 固定で過去30日分のデータを生成する
-        end_date_gen = df_original['event_date'].max().date()
+        # 新しいダミーデータ生成関数を呼び出す
+        # シナリオ名を直接渡し、日数は30日、ページ数は10ページで固定
         num_days_gen = 30
-
-        # シナリオに応じてパラメータを設定
-        if global_scenario == '好調':
-            num_sessions_gen = 15000
-            base_cvr_gen = 0.08
-        elif global_scenario == '不調':
-            num_sessions_gen = 8000
-            base_cvr_gen = 0.015
-        else: # 普通
-            num_sessions_gen = 10000
-            base_cvr_gen = 0.05
-
-        # ダミーデータを生成
-        st.session_state.generated_data = generate_dummy_data(num_sessions=num_sessions_gen, num_days=num_days_gen, base_cvr=base_cvr_gen)
+        num_pages_gen = 10
+        st.session_state.generated_data = generate_dummy_data(
+            scenario=global_scenario,
+            num_days=num_days_gen,
+            num_pages=num_pages_gen
+        )
     st.rerun()
 
 st.sidebar.markdown("---")
