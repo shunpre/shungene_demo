@@ -5231,6 +5231,10 @@ elif selected_analysis == "FAQ":
     
 # タブ12: アラート
 elif selected_analysis == "アラート":
+    # --- dfを決定 ---
+    # このページ用の学習データが生成されていればそれを使う
+    df = st.session_state.page_data.get("アラート", df_original)
+
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">主要指標の急な変化や異常を自動で検知し、お知らせします。この分析は、日次の全体パフォーマンスに基づいています。</div>', unsafe_allow_html=True)
 
