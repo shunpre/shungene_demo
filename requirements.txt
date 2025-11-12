@@ -3,3 +3,6 @@ pandas
 plotly
 numpy
 scipy
+requests
+Pillow
+beautifulsoup4
