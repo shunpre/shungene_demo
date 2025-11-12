@@ -234,20 +234,6 @@ def safe_rate(numerator, denominator):
     # denominatorが単一の数値の場合
     return numerator / denominator if denominator != 0 else 0.0
 
-# データ読み込み
-@st.cache_data
-def load_initial_data():
-    """
-    初回起動時にデフォルトのダミーデータを生成する。
-    この関数は @st.cache_data により、セッション内で一度しか実行されない。
-    """
-    with st.spinner("初回データを生成しています..."):
-        df = generate_dummy_data(scenario='普通', num_days=30, num_pages=16)
-        # 生成されたデータはセッション状態で管理
-        st.session_state.generated_data = df
-        st.session_state.data_scenario = '普通' # 現在のシナリオを保存
-    return st.session_state.generated_data
-
 # 比較期間のデータを取得する関数
 def get_comparison_data(df, current_start, current_end, comparison_type):
     """
@@ -281,11 +267,6 @@ def safe_extract_lp_text_content(extractor_func, url):
     else:
         # モジュールがない場合のデフォルトの戻り値
         return {"headlines": [], "body_copy": [], "ctas": []}
-
-# --- アプリケーションの初期化 ---
-# セッションにデータがなければ、初回データを生成・ロード
-if "generated_data" not in st.session_state:
-    st.session_state.generated_data = load_initial_data()
 
 
 st.sidebar.markdown("""
@@ -354,6 +335,12 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
         )
         st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
         st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
+    # ページを「全体サマリー」に設定して再実行（バージョン互換性対応）
+    try:
+        st.query_params["page"] = "全体サマリー"
+    except AttributeError:
+        st.experimental_set_query_params(page="全体サマリー")
+
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -411,8 +398,14 @@ def assign_channel(row):
 
 # --- 分析対象のDataFrameを決定 ---
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
-df = st.session_state.generated_data # type: ignore
-df['event_date'] = pd.to_datetime(df['event_date'])
+if "generated_data" not in st.session_state:
+    st.info("分析を開始するには、左側のサイドバーにある「ダミーデータを生成」ボタンを押してください。")
+    st.stop()
+else:
+    df = st.session_state.generated_data
+    df['event_date'] = pd.to_datetime(df['event_date'])
+
+
 
 # グルーピングされたメニュー項目
 menu_groups = {
