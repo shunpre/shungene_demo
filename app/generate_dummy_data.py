@@ -13,9 +13,9 @@ from scipy.stats import gamma, lognorm, norm
 SCENARIO_CONFIGS = {
     '好調': {
         'num_sessions_per_day_range': (450, 550), # Target 15000 sessions/month (500/day)
-        'fv_exit_rate': 0.20, # 1P目離脱率
-        'transition_mean': 0.88, # ページ間遷移確率の平均
-        'transition_sd': 0.03,
+        'fv_exit_rate': 0.15, # 1P目離脱率 (10-15%)
+        'transition_mean': 0.95, # ページ間遷移確率の平均 (離脱率5%)
+        'transition_sd': 0.02, # 遷移確率のばらつき
         'theta_base': 0.55, # CV生成のベース確率
         'theta_click': 0.35, # 最終CTAクリック確率
         'theta_form': 0.55, # フォーム完了率
@@ -57,9 +57,9 @@ SCENARIO_CONFIGS = {
     },
     '普通': {
         'num_sessions_per_day_range': (300, 400), # Target 10500 sessions/month (350/day)
-        'fv_exit_rate': 0.40,
-        'transition_mean': 0.82,
-        'transition_sd': 0.04,
+        'fv_exit_rate': 0.20, # 1P目離脱率 (15-20%)
+        'transition_mean': 0.92, # ページ間遷移確率の平均 (離脱率8%)
+        'transition_sd': 0.03,
         'theta_base': 0.40,
         'theta_click': 0.25,
         'theta_form': 0.45,
@@ -101,9 +101,9 @@ SCENARIO_CONFIGS = {
     },
     '不調': {
         'num_sessions_per_day_range': (180, 220), # Target 6000 sessions/month (200/day)
-        'fv_exit_rate': 0.60,
-        'transition_mean': 0.75,
-        'transition_sd': 0.05,
+        'fv_exit_rate': 0.30, # 1P目離脱率 (25%以上)
+        'transition_mean': 0.88, # ページ間遷移確率の平均 (離脱率12%)
+        'transition_sd': 0.04,
         'theta_base': 0.30,
         'theta_click': 0.15,
         'theta_form': 0.35,
