@@ -11,12 +11,12 @@ from datetime import datetime, timedelta
 import numpy as np
 
 try:
-    from capture_lp import extract_lp_text_content
+    from .capture_lp import extract_lp_text_content
 except ImportError:
     extract_lp_text_content = None # type: ignore
 import time # ファイルの先頭でインポート
 # scipyをインポート（A/Bテストの有意差検定で使用）
-from app.generate_dummy_data import generate_dummy_data
+from .generate_dummy_data import generate_dummy_data
 
 # ページ設定
 st.set_page_config(
