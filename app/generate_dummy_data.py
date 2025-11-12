@@ -20,6 +20,7 @@ SCENARIO_CONFIGS = {
         'theta_click': 0.35, # 最終CTAクリック確率
         'theta_form': 0.55, # フォーム完了率
         'cta_click_rate_base': 0.215, # CTAクリック率の基本値 (18-25%)
+        'base_session_cvr': 0.08, # セッション全体のベースCVR (8%)
         'epsilon_leak_cvr': 0.001, # 漏れCV
         'load_time_k': 4, # ガンマ分布の形状パラメータ
         'load_time_theta_ms': 500, # ガンマ分布の尺度パラメータ (小さいほど速い)
@@ -63,6 +64,7 @@ SCENARIO_CONFIGS = {
         'theta_click': 0.25,
         'theta_form': 0.45,
         'cta_click_rate_base': 0.14, # CTAクリック率の基本値 (10-18%)
+        'base_session_cvr': 0.04, # セッション全体のベースCVR (4%)
         'epsilon_leak_cvr': 0.001,
         'load_time_k': 4,
         'load_time_theta_ms': 600,
@@ -106,6 +108,7 @@ SCENARIO_CONFIGS = {
         'theta_click': 0.15,
         'theta_form': 0.35,
         'cta_click_rate_base': 0.075, # CTAクリック率の基本値 (5-10%)
+        'base_session_cvr': 0.015, # セッション全体のベースCVR (1.5%)
         'epsilon_leak_cvr': 0.001,
         'load_time_k': 4,
         'load_time_theta_ms': 700,
@@ -329,7 +332,6 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
             for page_num_dom in range(1, max_page_reached + 1):
                 page_location = f"{lp_url_base}#page-{page_num_dom}"
                 page_path = f"/tst08/tst08.html#page-{page_num_dom}"
-                
                 event_timestamp = session_start_time + timedelta(milliseconds=session_total_duration_ms)
                 
                 # Load Time (ガンマ分布 + デバイス係数)
@@ -338,12 +340,14 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
 
                 # Stay Time (対数正規分布 + デバイス係数 + ページ種別ボーナス + 読込時間影響 + 逆行ボーナス)
                 stay_mu = config['stay_time_mu_base'] * config['device_coeff'][device_type]['stay']
-                stay_mu += page_type_stay_bonus.get(page_num_dom, 1.0) # ページ種別ボーナス
                 
                 stay_mu += (load_time_ms - config['load_time_theta_ms']) * config['load_time_impact_stay_ms'] # 読込時間が長いとstay_muが下がる
 
                 stay_ms = np.exp(lognorm.rvs(s=config['stay_time_sigma'], loc=0, scale=np.exp(stay_mu)))
+                # ページ種別ボーナスを乗算で適用
+                stay_ms *= page_type_stay_bonus.get(page_num_dom, 1.0)
                 stay_ms = np.clip(stay_ms, 1000, 300000) # 1秒 - 5分
+                
                 
                 if page_num_dom > 1 and len(current_page_events) > 0 and current_page_events[-1]['direction'] == 'backward':
                     stay_ms *= (1 + config['backflow_stay_bonus'])
@@ -362,33 +366,8 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                 if page_num_dom in [1, 8] and random.random() < 0.3:
                     event_name = 'video_play'
                 
+                # Always add a page_view event for this page
                 click_x_rel, click_y_rel, elem_tag, elem_id, elem_classes, link_url = None, None, None, None, None, None
-                if random.random() < 0.3:
-                    click_x_rel = random.uniform(0.1, 0.9)
-                    click_y_rel = random.uniform(0.1, 0.9)
-                    elem_tag = random.choice(["button", "a", "div"])
-                    
-                    cta_click_prob = config['cta_click_rate_base']
-                    if page_num_dom >= num_pages:
-                        cta_click_prob *= 1.5
-                    if random.random() < cta_click_prob:
-                        elem_classes = 'cta btn-primary'
-                        elem_id = 'cta-button'
-                        link_url = "https://example.com/thank-you"
-                    
-                    fb_click_prob = 0.01 + (page_num_dom / num_pages) * config['fb_depth_bonus']
-                    if random.random() < fb_click_prob:
-                        elem_classes = 'floating'
-                        elem_id = 'floating-banner'
-                        link_url = "https://example.com/special-offer"
-
-                    exit_pop_click_prob = 0.01
-                    if max_page_reached == 1 or direction == 'backward':
-                        exit_pop_click_prob += config['exit_pop_bounce_bonus']
-                    if random.random() < exit_pop_click_prob:
-                        elem_classes = 'exit'
-                        elem_id = 'exit-popup'
-                        link_url = "https://example.com/exit-offer"
 
                 video_src = None
                 if page_num_dom in [1, 8]:
@@ -447,6 +426,51 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                     "cv_value": None,
                     "value": None,
                 })
+
+                # クリックイベントを別イベントとして生成
+                if random.random() < 0.3: # 30%の確率で何らかのクリックが発生
+                    click_event = current_page_events[-1].copy() # page_viewイベントをベースに作成
+                    click_event['event_name'] = 'click'
+                    click_event['event_timestamp'] = event_timestamp + timedelta(milliseconds=random.randint(100, int(stay_ms/2))) # 滞在時間内にクリック
+                    click_event['event_timestamp_jst'] = click_event['event_timestamp'] + timedelta(hours=9)
+                    click_event['click_x_rel'] = random.uniform(0.1, 0.9)
+                    click_event['click_y_rel'] = random.uniform(0.1, 0.9)
+                    click_event['elem_tag'] = random.choice(["button", "a", "div"])
+
+                    click_type_chosen = False
+                    # CTAクリック
+                    cta_click_prob = config['cta_click_rate_base']
+                    if page_num_dom >= num_pages: cta_click_prob *= 1.5
+                    if random.random() < cta_click_prob:
+                        click_event['elem_classes'] = 'cta btn-primary'
+                        click_event['elem_id'] = 'cta-button'
+                        click_event['link_url'] = "https://example.com/thank-you"
+                        click_type_chosen = True
+                    
+                    # フローティングバナークリック
+                    if not click_type_chosen:
+                        fb_click_prob = 0.01 + (page_num_dom / num_pages) * config['fb_depth_bonus']
+                        if random.random() < fb_click_prob:
+                            click_event['elem_classes'] = 'floating'
+                            click_event['elem_id'] = 'floating-banner'
+                            click_event['link_url'] = "https://example.com/special-offer"
+                            click_type_chosen = True
+
+                    # 離脱POPクリック
+                    if not click_type_chosen:
+                        exit_pop_click_prob = 0.01
+                        if max_page_reached == 1 or direction == 'backward':
+                            exit_pop_click_prob += config['exit_pop_bounce_bonus']
+                        if random.random() < exit_pop_click_prob:
+                            click_event['elem_classes'] = 'exit'
+                            click_event['elem_id'] = 'exit-popup'
+                            click_event['link_url'] = "https://example.com/exit-offer"
+                            click_type_chosen = True
+                    
+                    if click_type_chosen:
+                        current_page_events.append(click_event)
+
+
                 session_total_duration_ms += int(stay_ms) + int(load_time_ms) + random.randint(100, 500)
                 last_stay_ms = int(stay_ms)
             
