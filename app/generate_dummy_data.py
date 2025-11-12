@@ -133,7 +133,7 @@ SCENARIO_CONFIGS = {
     }
 }
 
-def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages: int = 10):
+def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04):
     """
     リアルなスワイプLPイベントデータを生成
     
@@ -141,11 +141,29 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
         scenario: '好調', '普通', '不調' のいずれか
         num_days: 過去何日分のデータを生成するか
         num_pages: LPの総ページ数
+        target_cvr: ユーザーが入力した目標CVR（小数）
     
     Returns:
         pd.DataFrame: ダミーデータ
-    """
+    """    
     config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['普通']).copy() # デフォルトは「普通」
+
+    # --- ユーザー入力のCVRに基づいてシナリオを動的に調整 ---
+    if scenario == '好調':
+        # 目標より30%上
+        adjusted_cvr = target_cvr * 1.3
+        # セッション数も少し増やす
+        config['num_sessions_per_day_range'] = tuple(int(x * 1.1) for x in config['num_sessions_per_day_range'])
+    elif scenario == '不調':
+        # 目標より20%下 (目標の80%)
+        adjusted_cvr = target_cvr * 0.8
+        # セッション数も少し減らす
+        config['num_sessions_per_day_range'] = tuple(int(x * 0.9) for x in config['num_sessions_per_day_range'])
+    else: # 普通
+        # 目標の ±10% 程度
+        adjusted_cvr = target_cvr * random.uniform(0.9, 1.1)
+
+    config['base_session_cvr'] = adjusted_cvr
 
     # 基準日時
     end_date = datetime.now()

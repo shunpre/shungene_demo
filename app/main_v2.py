@@ -304,17 +304,34 @@ st.sidebar.markdown("---")
 
 # --- 全ページ共通の学習用機能UI ---
 st.sidebar.markdown("##### 学習用機能")
-st.sidebar.markdown('<div class="graph-description" style="font-size: 0.8rem; margin-bottom: 1rem;">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータは、再度生成するまで全ページで共通して使用されます。</div>', unsafe_allow_html=True)
+st.sidebar.markdown("""
+<div class="graph-description" style="font-size: 0.8rem; margin-bottom: 1rem;">
+想定CVRを設定し、シナリオを選択すると、ダミーデータが生成されます。<br>
+データ分析の学習にご活用ください。<br><br>
+<b>シナリオの目安</b>
+<ul>
+  <li>好調: 想定CVR × 1.3</li>
+  <li>普通: 想定CVR × 1.0</li>
+  <li>不調: 想定CVR × 0.8</li>
+</ul>
+</div>
+""", unsafe_allow_html=True)
 
 scenario_options = ['好調', '普通', '不調']
 
-# セッション状態で管理されている現在のシナリオに基づいて、selectboxのデフォルトインデックスを設定
 try:
-    # st.session_state.data_scenario が存在すれば、そのインデックスを使用
     default_scenario_index = scenario_options.index(st.session_state.data_scenario)
 except (AttributeError, ValueError):
-    # 存在しない、またはリストにない場合はデフォルトの '普通' (インデックス1) を使用
     default_scenario_index = 1
+
+target_cvr_input = st.sidebar.number_input(
+    "想定CVR (%)",
+    min_value=0.1,
+    max_value=100.0,
+    value=st.session_state.get('target_cvr', 3.0),
+    step=0.1,
+    format="%.2f"
+)
 
 global_scenario = st.sidebar.selectbox(
     "データシナリオを選択",
@@ -322,6 +339,7 @@ global_scenario = st.sidebar.selectbox(
     index=default_scenario_index,
     key="global_scenario_selector"
 )
+
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
         # 新しいダミーデータ生成関数を呼び出す
@@ -331,9 +349,11 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
         st.session_state.generated_data = generate_dummy_data(
             scenario=global_scenario,
             num_days=num_days_gen,
-            num_pages=num_pages_gen
+            num_pages=num_pages_gen,
+            target_cvr=target_cvr_input / 100 # %を小数に変換して渡す
         )
         st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
+        st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
     st.rerun()
 
 st.sidebar.markdown("---")
