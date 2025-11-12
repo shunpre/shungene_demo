@@ -5131,30 +5131,6 @@ elif selected_analysis == "アラート":
     has_high_alerts = False
     has_medium_alerts = False
 
-    # --- デモ用アラート（高） ---
-    st.markdown("#### 重要度：高")
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.error("CVRが急落")
-        with col2:
-            st.markdown("**【デモ】コンバージョン率が前日比で 55.2% 大幅に低下しました。**")
-            st.markdown(f"<small>前日: 3.50%, 本日: 1.57%</small>", unsafe_allow_html=True)
-        with col3:
-            st.button("時系列分析で確認", key=f"alert_demo_cvr", use_container_width=True, on_click=navigate_to, args=('時系列分析',))
-
-    # --- デモ用アラート（中） ---
-    st.markdown("#### 重要度：中")
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.warning("CVRが低下（モバイル）")
-        with col2:
-            st.markdown("**【デモ】モバイルデバイスのコンバージョン率が過去7日間平均より 35.8% 低下しています。**")
-            st.markdown(f"<small>過去7日平均: 2.85%, 本日: 1.83%</small>", unsafe_allow_html=True)
-        with col3:
-            st.button("デモグラフィック情報で確認", key=f"alert_demo_mobile_cvr", use_container_width=True, on_click=navigate_to, args=('デモグラフィック情報',))
-
     # BigQueryのv_alertsビューと同様の計算をpandasで実行
     # 1. 日次KPIサマリーを作成 (v_kpi_daily相当)
     daily_kpi = df.groupby(df['event_date'].dt.date).agg(
@@ -5222,6 +5198,7 @@ elif selected_analysis == "アラート":
 
         if high_alerts:
             has_high_alerts = True
+            st.markdown("#### 重要度：高")
             for alert in high_alerts:
                 with st.container(): # type: ignore
                     col1, col2, col3 = st.columns([1, 4, 1.5])
@@ -5235,6 +5212,7 @@ elif selected_analysis == "アラート":
 
         if medium_alerts: # type: ignore
             has_medium_alerts = True
+            st.markdown("#### 重要度：中")
             for alert in medium_alerts:
                 with st.container(): # type: ignore
                     col1, col2, col3 = st.columns([1, 4, 1.5])
@@ -5249,11 +5227,13 @@ elif selected_analysis == "アラート":
     if not has_high_alerts:
         st.info("現在、重要度の高いアラートはありません。")
 
-    st.markdown("---")
+    # 2つのセクションの間に区切り線を入れる
+    if has_high_alerts and has_medium_alerts:
+        st.markdown("---")
 
-    if not has_medium_alerts:
-        st.info("現在、重要度の低いアラートはありません。")
-
+    if not has_medium_alerts and has_high_alerts: # 高アラートはあるが中アラートはない場合
+        st.markdown("---")
+        st.info("現在、重要度：中のアラートはありません。")
     else: # type: ignore
         st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
 

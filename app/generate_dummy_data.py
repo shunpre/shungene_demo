@@ -13,15 +13,11 @@ from scipy.stats import gamma, lognorm, norm
 SCENARIO_CONFIGS = {
     '好調': {
         'num_sessions_per_day_range': (450, 550), # Target 15000 sessions/month (500/day)
-        'fv_exit_rate': 0.15, # 1P目離脱率 (10-15%)
-        'transition_mean': 0.95, # ページ間遷移確率の平均 (離脱率5%)
+        'fv_exit_rate': 0.20, # 1P目離脱率 (20%)
+        'transition_mean': 0.97, # ページ間遷移確率の平均 (離脱率3%)
         'transition_sd': 0.02, # 遷移確率のばらつき
-        'theta_base': 0.55, # CV生成のベース確率
-        'theta_click': 0.35, # 最終CTAクリック確率
-        'theta_form': 0.55, # フォーム完了率
         'cta_click_rate_base': 0.215, # CTAクリック率の基本値 (18-25%)
         'base_session_cvr': 0.08, # セッション全体のベースCVR (8%)
-        'epsilon_leak_cvr': 0.001, # 漏れCV
         'load_time_k': 4, # ガンマ分布の形状パラメータ
         'load_time_theta_ms': 500, # ガンマ分布の尺度パラメータ (小さいほど速い)
         'stay_time_mu_base': 4.5, # 対数正規分布のmu (大きいほど滞在長い)
@@ -57,15 +53,11 @@ SCENARIO_CONFIGS = {
     },
     '普通': {
         'num_sessions_per_day_range': (300, 400), # Target 10500 sessions/month (350/day)
-        'fv_exit_rate': 0.20, # 1P目離脱率 (15-20%)
-        'transition_mean': 0.92, # ページ間遷移確率の平均 (離脱率8%)
+        'fv_exit_rate': 0.35, # 1P目離脱率 (35%)
+        'transition_mean': 0.94, # ページ間遷移確率の平均 (離脱率6%)
         'transition_sd': 0.03,
-        'theta_base': 0.40,
-        'theta_click': 0.25,
-        'theta_form': 0.45,
         'cta_click_rate_base': 0.14, # CTAクリック率の基本値 (10-18%)
         'base_session_cvr': 0.04, # セッション全体のベースCVR (4%)
-        'epsilon_leak_cvr': 0.001,
         'load_time_k': 4,
         'load_time_theta_ms': 600,
         'stay_time_mu_base': 4.2,
@@ -101,15 +93,11 @@ SCENARIO_CONFIGS = {
     },
     '不調': {
         'num_sessions_per_day_range': (180, 220), # Target 6000 sessions/month (200/day)
-        'fv_exit_rate': 0.30, # 1P目離脱率 (25%以上)
-        'transition_mean': 0.88, # ページ間遷移確率の平均 (離脱率12%)
+        'fv_exit_rate': 0.50, # 1P目離脱率 (50%)
+        'transition_mean': 0.90, # ページ間遷移確率の平均 (離脱率10%)
         'transition_sd': 0.04,
-        'theta_base': 0.30,
-        'theta_click': 0.15,
-        'theta_form': 0.35,
         'cta_click_rate_base': 0.075, # CTAクリック率の基本値 (5-10%)
         'base_session_cvr': 0.015, # セッション全体のベースCVR (1.5%)
-        'epsilon_leak_cvr': 0.001,
         'load_time_k': 4,
         'load_time_theta_ms': 700,
         'stay_time_mu_base': 3.8,
@@ -548,32 +536,39 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
     # 期間内にランダムな3日を「異常日」として設定
     if num_days >= 10 and not df.empty: # Ensure df is not empty before accessing columns
         if scenario == '不調':
+            # 不調シナリオでは、CVR急落日とセッション急減日をそれぞれ設定
             alert_dates = random.sample(
                 [d.date() for d in pd.date_range(start_date, end_date - timedelta(days=3))],
-                k=min(2, num_days - 5) # 不調時は2日ほどアラート日を設定
+                k=min(4, num_days - 5) # 4日ほど異常日を設定
             )
-            session_drop_rate = random.uniform(0.5, 0.8)
-            for alert_date in alert_dates:
-                # セッション数を意図的に減らす (50-80%減)
+            
+            # 2日をCVR急落日に
+            for alert_date in alert_dates[:2]:
+                # CVRを意図的に0にする (CVイベントを全て削除)
+                cv_indices_on_alert_date = df[(df['event_date'] == alert_date) & (df['cv_type'].notna())].index
+                if not cv_indices_on_alert_date.empty:
+                    df.drop(cv_indices_on_alert_date, inplace=True)
+            
+            # 2日をセッション急減日に
+            for alert_date in alert_dates[2:]:
+                session_drop_rate = random.uniform(0.6, 0.8) # 60-80%減
                 sessions_on_alert_date = df[df['event_date'] == alert_date]['session_id'].unique()
-                if len(sessions_on_alert_date) > 0:
+                if len(sessions_on_alert_date) > 1:
                     sessions_to_drop_count = int(len(sessions_on_alert_date) * session_drop_rate)
                     sessions_to_drop_ids = random.sample(list(sessions_on_alert_date), sessions_to_drop_count)
                     df = df[~((df['event_date'] == alert_date) & (df['session_id'].isin(sessions_to_drop_ids)))]
 
-                # CVRを意図的に下げる (CVイベントを削除)
-                cv_indices_on_alert_date = df[(df['event_date'] == alert_date) & (df['cv_type'].notna())].index
-                if not cv_indices_on_alert_date.empty:
-                    df.drop(cv_indices_on_alert_date, inplace=True)
         elif scenario == '普通':
-            # 普通シナリオでは、CVRを少しだけ下げる日を1日設定
-            alert_date = (start_date + timedelta(days=random.randint(3, num_days - 3))).date()
-            cvr_drop_rate = 0.7 # 70%のCVを削除
+            # 普通シナリオでは、CVRを少しだけ下げる日をランダムに1日設定
+            if random.random() < 0.5: # 50%の確率でアラート日を設定
+                alert_date = (start_date + timedelta(days=random.randint(3, num_days - 3))).date()
+                cvr_drop_rate = 0.5 # 50%のCVを削除
 
-            # CVRを意図的に下げる (CVイベントを削除)
-            cv_indices_on_alert_date = df[(df['event_date'] == alert_date) & (df['cv_type'].notna())].index
-            if not cv_indices_on_alert_date.empty:
-                df.drop(cv_indices_on_alert_date, inplace=True)
+                # CVRを意図的に下げる (CVイベントをランダムに削除)
+                cv_indices_on_alert_date = df[(df['event_date'] == alert_date) & (df['cv_type'].notna())].index
+                if len(cv_indices_on_alert_date) > 1:
+                    indices_to_drop = random.sample(list(cv_indices_on_alert_date), k=int(len(cv_indices_on_alert_date) * cvr_drop_rate))
+                    df.drop(indices_to_drop, inplace=True)
 
     # 日付でソート
     if not df.empty:
