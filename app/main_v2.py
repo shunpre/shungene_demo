@@ -397,6 +397,8 @@ menu_groups = {
 # --- 共通の前処理 ---
 # channel列を追加
 df['channel'] = df.apply(assign_channel, axis=1)
+# LPのベースURL列を追加
+df['lp_base_url'] = df['page_location'].str.split('#').str[0]
 # twitterをXに置換
 df['utm_source_display'] = df['utm_source'].replace('twitter', 'X')
 # NaN値を '(none)' に置換
@@ -464,8 +466,8 @@ if selected_analysis == "全体サマリー":
 
     with filter_cols_1[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox(
+        lp_options = sorted(df['lp_base_url'].dropna().unique().tolist())
+        selected_lp_base_url = st.selectbox(
             "LP選択", 
             lp_options, 
             index=0 if lp_options else None, # 選択肢がなければindexもNone
@@ -555,8 +557,8 @@ if selected_analysis == "全体サマリー":
     ]
 
     # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    if selected_lp_base_url:
+        filtered_df = filtered_df[filtered_df['lp_base_url'] == selected_lp_base_url]
 
     # --- クロス分析用フィルター適用 ---
     if selected_device != "すべて":
@@ -638,8 +640,8 @@ if selected_analysis == "全体サマリー":
         if result is not None:
             comparison_df, comp_start, comp_end = result
             # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
+            if selected_lp_base_url:
+                comparison_df = comparison_df[comparison_df['lp_base_url'] == selected_lp_base_url]
             # --- 比較データにもクロス分析用フィルターを適用 ---
             if selected_device != "すべて":
                 comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
@@ -1320,8 +1322,8 @@ elif selected_analysis == "ページ分析":
 
     with filter_cols_1[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox(
+        lp_options = sorted(df['lp_base_url'].dropna().unique().tolist())
+        selected_lp_base_url = st.selectbox(
             "LP選択", 
             lp_options, 
             index=0 if lp_options else None,
@@ -1404,8 +1406,8 @@ elif selected_analysis == "ページ分析":
     ]
 
     # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    if selected_lp_base_url:
+        filtered_df = filtered_df[filtered_df['lp_base_url'] == selected_lp_base_url]
 
     # --- クロス分析用フィルター適用 ---
     if selected_device != "すべて":
@@ -1432,10 +1434,10 @@ elif selected_analysis == "ページ分析":
         st.stop()
 
     # ページ分析は単一のLP選択時のみ実行
-    if selected_lp:
+    if selected_lp_base_url:
         pass # 選択されたLPのURL表示は削除
     else:
-        st.warning("ページ分析を行うには、フィルターで分析したいLPを選択してください。")
+        st.warning("ページ分析を行うには、上のフィルターで分析したいLPを選択してください。")
         st.stop()
     
     # --- BigQueryデータシミュレーション ---
@@ -1468,7 +1470,7 @@ elif selected_analysis == "ページ分析":
         指定されたページ番号に基づいて、コンテンツのタイプとソースを返します。
         現在はハードコードされたURLリストを使用します。
         """
-        url = lp_content_urls.get(page_num)
+        url = lp_content_urls.get(page_num) # type: ignore
         if url:
             if url.endswith(('.mp4', '.webm', '.mov')):
                 return {'page_number': page_num, 'content_type': 'video', 'content_source': url}
@@ -1505,7 +1507,10 @@ elif selected_analysis == "ページ分析":
         page_stats['逆行率'] = 0
     
     # LPの実際のページ数を取得（画像取得が成功した場合はそれを使用、失敗した場合は推測値）
-    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 10
+    # フィルターをかける前の元のデータから最大ページ数を取得することで、フィルターによってページ数が1になる問題を回避
+    unfiltered_lp_df = df[df['lp_base_url'] == selected_lp_base_url]
+    actual_page_count = int(unfiltered_lp_df['page_num_dom'].max()) if not unfiltered_lp_df.empty and not unfiltered_lp_df['page_num_dom'].isnull().all() else 1
+
     
     # 離脱率計算（LPの実際のページ数を使用）
     page_exit = []
@@ -1576,7 +1581,7 @@ elif selected_analysis == "ページ分析":
             with col1:
                 st.markdown(f"**ページ {page_num}**")
                 # コンテンツ情報を取得
-                content_info = get_lp_content_info(selected_lp, page_num)
+                content_info = get_lp_content_info(selected_lp_base_url, page_num)
                 content_type = content_info.get('content_type', 'image')
                 content_source = content_info.get('content_source')
 
@@ -1604,7 +1609,11 @@ elif selected_analysis == "ページ分析":
                 stay_time = page_data['平均滞在時間(秒)'].iloc[0] if not page_data.empty and '平均滞在時間(秒)' in page_data.columns else 0
                 backflow_rate = page_data['逆行率'].iloc[0] if not page_data.empty and '逆行率' in page_data.columns else 0
                 # --- ここまで ---
-
+                
+                # 1ページ目の逆行率は表示しない
+                if page_num == 1:
+                    backflow_rate = None
+                    
                 # このページに到達したユニークなセッション数を計算
                 page_sessions = page_events['session_id'].nunique()
 
@@ -1623,7 +1632,7 @@ elif selected_analysis == "ページ分析":
                 metric_cols_1[0].metric("ビュー数", f"{views:,}")
                 metric_cols_1[1].metric("離脱率", f"{exit_rate:.1f}%")
                 metric_cols_1[2].metric("平均滞在時間", f"{stay_time:.1f}秒")
-                metric_cols_1[3].metric("逆行率", f"{backflow_rate:.1f}%")
+                metric_cols_1[3].metric("逆行率", f"{backflow_rate:.1f}%" if backflow_rate is not None else "---")
                 metric_cols_2[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
                 metric_cols_2[1].metric("FBクリック率", f"{fb_click_rate:.1f}%")
                 metric_cols_2[2].metric("離脱POPクリック率", f"{exit_pop_click_rate:.1f}%")
