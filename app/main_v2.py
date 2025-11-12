@@ -398,13 +398,13 @@ def assign_channel(row):
 
 # --- 分析対象のDataFrameを決定 ---
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
-if "generated_data" not in st.session_state:
+if "generated_data" not in st.session_state or st.session_state.generated_data.empty:
     st.info("分析を開始するには、左側のサイドバーにある「ダミーデータを生成」ボタンを押してください。")
     st.stop()
 else:
     df = st.session_state.generated_data
     df['event_date'] = pd.to_datetime(df['event_date'])
-
+    df['event_timestamp'] = pd.to_datetime(df['event_timestamp'])
 
 
 # グルーピングされたメニュー項目
@@ -456,13 +456,18 @@ for group_name, items in menu_groups.items():
         else:
             css_class = ""       # 一致しなければなし
         
+        # リンクがクリックされたかどうかを判定するためのユニークなキー
+        button_key = f"nav_button_{item}"
+
         # HTMLのリンクをst.markdownで作成
         # href に ?page={item}#top-anchor を設定
         # target="_self" は、iframe内で遷移を完結させるために重要
-        st.sidebar.markdown(
-            f'<a href="?page={item}#top-anchor" target="_self" class="sidebar-link {css_class}">{item}</a>',
-            unsafe_allow_html=True
-        )
+        if st.sidebar.button(item, key=button_key, use_container_width=True):
+            try:
+                st.query_params["page"] = item
+            except AttributeError:
+                st.experimental_set_query_params(page=item)
+            st.rerun()
 
     st.sidebar.markdown("---")
 
