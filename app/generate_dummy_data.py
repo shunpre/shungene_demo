@@ -157,7 +157,7 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
     Returns:
         pd.DataFrame: ダミーデータ
     """
-    config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['普通']) # デフォルトは「普通」
+    config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['普通']).copy() # デフォルトは「普通」
 
     # 基準日時
     end_date = datetime.now()
