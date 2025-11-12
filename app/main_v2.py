@@ -9,18 +9,19 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+import sys
+import os
+import time
 
-try:
-    from .capture_lp import extract_lp_text_content
-except ImportError:
-    extract_lp_text_content = None # type: ignore
-import time # ファイルの先頭でインポート
-try:
-    # パッケージとして実行される場合
-    from .generate_dummy_data import generate_dummy_data
-except ImportError:
-    # スクリプトとして直接実行される場合
-    from generate_dummy_data import generate_dummy_data
+# --- モジュールのインポート設定 ---
+# スクリプトのディレクトリをPythonのパスに追加
+# これにより、ローカルでもStreamlit Cloudでも同じようにモジュールを読み込める
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+from generate_dummy_data import generate_dummy_data
+from capture_lp import extract_lp_text_content
 
 # ページ設定
 st.set_page_config(
