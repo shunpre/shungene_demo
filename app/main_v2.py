@@ -757,12 +757,17 @@ if selected_analysis == "全体サマリー":
     # 日別にKPIを計算
     daily_df = filtered_df.groupby(filtered_df['event_date'].dt.date).agg(
         セッション数=('session_id', 'nunique'),
-        クリック数=('event_name', lambda x: (x == 'click').sum()),
-        平均滞在時間=('stay_ms', 'mean'),
-        平均到達ページ=('max_page_reached', 'mean'),
-        平均読込時間=('load_time_ms', 'mean')
+        クリック数=('event_name', lambda x: (x == 'click').sum()), # この計算は後で上書きされるのでそのままでOK
+        平均滞在時間=('stay_ms', 'mean')
     ).reset_index()
     daily_df.rename(columns={'event_date': '日付'}, inplace=True)
+
+    # --- 平均到達ページ数の正しい計算ロジック ---
+    # 日ごと、セッションごとに最大到達ページ数を取得
+    daily_session_max_page = filtered_df.groupby([filtered_df['event_date'].dt.date, 'session_id'])['max_page_reached'].max().reset_index()
+    # 日ごとにその平均を計算
+    daily_avg_pages = daily_session_max_page.groupby('event_date')['max_page_reached'].mean().reset_index()
+    daily_avg_pages.rename(columns={'event_date': '日付', 'max_page_reached': '平均到達ページ'}, inplace=True)
 
     # 日別コンバージョン数
     daily_cv = filtered_df[filtered_df['cv_type'].notna()].groupby(filtered_df['event_date'].dt.date)['session_id'].nunique().reset_index()
@@ -785,6 +790,8 @@ if selected_analysis == "全体サマリー":
     daily_df['FV残存率'] = daily_df.apply(lambda row: safe_rate(row['FV残存数'], row['セッション数']) * 100, axis=1)
     daily_df['最終CTA到達率'] = daily_df.apply(lambda row: safe_rate(row['最終CTA到達数'], row['セッション数']) * 100, axis=1)
     daily_df['平均滞在時間'] = daily_df['平均滞在時間'] / 1000
+    # 正しく計算した平均到達ページ数をマージ
+    daily_df = pd.merge(daily_df, daily_avg_pages, on='日付', how='left')
 
     # 日付を降順にソート
     daily_df = daily_df.sort_values(by='日付', ascending=False)
