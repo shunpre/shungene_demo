@@ -2,6 +2,19 @@
 瞬ジェネ AIアナライザー - Step 2完成版
 グラフ説明と比較機能を追加
 """
+import sys
+import os
+
+# --- どんな環境でもインポートを成功させるための「魔法の呪文」 ---
+# このファイルの絶対パスを取得
+file_path = os.path.abspath(__file__)
+# このファイルの親ディレクトリ（'app'フォルダ）のパスを取得
+dir_path = os.path.dirname(file_path)
+# 'app'フォルダの親ディレクトリ（プロジェクトルート）のパスを取得
+project_root = os.path.dirname(dir_path)
+# Pythonがファイルを検索する場所のリストに、プロジェクトルートを追加
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 import streamlit as st
 import pandas as pd
@@ -9,19 +22,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
-import sys
-import os
 import time
 
-# --- モジュールのインポート設定 ---
-# スクリプトのディレクトリをPythonのパスに追加
-# これにより、ローカルでもStreamlit Cloudでも同じようにモジュールを読み込める
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
-
-from generate_dummy_data import generate_dummy_data
-from capture_lp import extract_lp_text_content
+from app.generate_dummy_data import generate_dummy_data
+from app.capture_lp import extract_lp_text_content
 
 # ページ設定
 st.set_page_config(
