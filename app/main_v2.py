@@ -275,12 +275,11 @@ def safe_extract_lp_text_content(extractor_func, url):
 
 # --- アプリケーションの初期化 ---
 # セッションにデータがなければ、初回データを生成・ロード
-if 'generated_data' not in st.session_state:
-    load_initial_data()
+if "generated_data" not in st.session_state:
+    st.session_state.generated_data = load_initial_data()
 
 
-st.sidebar.markdown( # type: ignore
-    """
+st.sidebar.markdown("""
     <a href="?page=使用ガイド" target="_self" style="
         display: block;
         color: #002060;
@@ -374,7 +373,7 @@ def assign_channel(row):
 
 # --- 分析対象のDataFrameを決定 ---
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
-df = st.session_state.generated_data
+df = st.session_state.generated_data # type: ignore
 df['event_date'] = pd.to_datetime(df['event_date'])
 
 # グルーピングされたメニュー項目
