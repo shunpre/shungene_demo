@@ -5127,6 +5127,10 @@ elif selected_analysis == "アラート":
     st.markdown('<div class="sub-header">アラート</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">主要指標の急な変化や異常を自動で検知し、お知らせします。この分析は、日次の全体パフォーマンスに基づいています。</div>', unsafe_allow_html=True)
 
+    # アラート表示用のフラグ
+    has_high_alerts = False
+    has_medium_alerts = False
+
     # --- デモ用アラート（高） ---
     st.markdown("#### 重要度：高")
     with st.container():
@@ -5138,16 +5142,6 @@ elif selected_analysis == "アラート":
             st.markdown(f"<small>前日: 3.50%, 本日: 1.57%</small>", unsafe_allow_html=True)
         with col3:
             st.button("時系列分析で確認", key=f"alert_demo_cvr", use_container_width=True, on_click=navigate_to, args=('時系列分析',))
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.error("セッションが急減")
-        with col2:
-            st.markdown("**【デモ】セッション数が前日比で 60.1% 大幅に減少しました。**")
-            st.markdown(f"<small>前日: 1,250, 本日: 498</small>", unsafe_allow_html=True)
-        with col3:
-            st.button("全体サマリで確認", key=f"alert_demo_session", use_container_width=True, on_click=navigate_to, args=('全体サマリ',))
-    st.markdown("---")
 
     # --- デモ用アラート（中） ---
     st.markdown("#### 重要度：中")
@@ -5160,17 +5154,6 @@ elif selected_analysis == "アラート":
             st.markdown(f"<small>過去7日平均: 2.85%, 本日: 1.83%</small>", unsafe_allow_html=True)
         with col3:
             st.button("デモグラフィック情報で確認", key=f"alert_demo_mobile_cvr", use_container_width=True, on_click=navigate_to, args=('デモグラフィック情報',))
-    with st.container():
-        col1, col2, col3 = st.columns([1, 4, 1.5])
-        with col1:
-            st.warning("流入が減少（SNS）")
-        with col2:
-            st.markdown("**【デモ】Organic Socialチャネルからの流入が過去7日間平均より 42.0% 減少しています。**")
-            st.markdown(f"<small>過去7日平均: 350セッション/日, 本日: 203セッション</small>", unsafe_allow_html=True)
-        with col3:
-            st.button("広告分析で確認", key=f"alert_demo_social_inflow", use_container_width=True, on_click=navigate_to, args=('広告分析',))
-    st.markdown("---")
-    # --- デモ用アラートここまで ---
 
     # BigQueryのv_alertsビューと同様の計算をpandasで実行
     # 1. 日次KPIサマリーを作成 (v_kpi_daily相当)
@@ -5237,31 +5220,39 @@ elif selected_analysis == "アラート":
         high_alerts = [a for a in alerts if a['level'] == 'high']
         medium_alerts = [a for a in alerts if a['level'] == 'medium']
 
-        # デモ専用なので、実績値アラートがない場合のメッセージは不要
-
         if high_alerts:
-            st.markdown("#### 重要度：高（実績値）")
+            has_high_alerts = True
             for alert in high_alerts:
                 with st.container(): # type: ignore
                     col1, col2, col3 = st.columns([1, 4, 1.5])
+                    with col1:
+                        st.error(alert['title'])
                     with col2:
                         st.markdown(alert['description'])
                         st.markdown(f"<small>{alert['details']}</small>", unsafe_allow_html=True)
                     with col3:
                         st.button(alert['action'], key=f"alert_{alert['title']}", use_container_width=True, on_click=navigate_to, args=(alert['page'],))
-            st.markdown("---")
 
         if medium_alerts: # type: ignore
-            st.markdown("#### 重要度：中（実績値）")
+            has_medium_alerts = True
             for alert in medium_alerts:
                 with st.container(): # type: ignore
                     col1, col2, col3 = st.columns([1, 4, 1.5])
+                    with col1:
+                        st.warning(alert['title'])
                     with col2:
                         st.markdown(alert['description'])
                         st.markdown(f"<small>{alert['details']}</small>", unsafe_allow_html=True)
                     with col3:
                         st.button(alert['action'], key=f"alert_{alert['title']}", use_container_width=True, on_click=navigate_to, args=(alert['page'],))
-            st.markdown("---")
+
+    if not has_high_alerts:
+        st.info("現在、重要度の高いアラートはありません。")
+
+    st.markdown("---")
+
+    if not has_medium_alerts:
+        st.info("現在、重要度の低いアラートはありません。")
 
     else: # type: ignore
         st.info("アラートを生成するための十分なデータがありません（最低8日分のデータが必要です）。")
@@ -5269,27 +5260,45 @@ elif selected_analysis == "アラート":
 elif selected_analysis == "瞬フォーム分析":
 
     st.markdown('<div class="sub-header">瞬フォーム分析</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">このページは現在開発中のデモです。表示されている数値はダミーであり、他の分析ページとは連動していません。</div>', unsafe_allow_html=True)
 
     # --- フィルター設定 ---
     st.markdown('<div class="sub-header">フィルター設定</div>', unsafe_allow_html=True)
     filter_cols_1 = st.columns(4)
     filter_cols_2 = st.columns(4)
 
+    # フィルターのキーにプレフィックスを追加してユニークにする
     with filter_cols_1[0]:
         period_options = ["今日", "昨日", "過去7日間", "過去14日間", "過去30日間", "今月", "先月", "全期間", "カスタム"]
         selected_period = st.selectbox("期間を選択", period_options, index=2, key="shun_form_period")
 
     with filter_cols_1[1]:
         lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox("LP選択", lp_options, index=0 if lp_options else None, key="shun_form_lp", disabled=not lp_options)
+        selected_lp = st.selectbox(
+            "LP選択", 
+            lp_options, 
+            index=0 if lp_options else None, 
+            key="shun_form_lp", 
+            disabled=not lp_options
+        )
 
     with filter_cols_1[2]:
         device_options = ["すべて"] + sorted(df['device_type'].dropna().unique().tolist())
-        selected_device = st.selectbox("デバイス選択", device_options, index=0, key="shun_form_device")
+        selected_device = st.selectbox(
+            "デバイス選択", 
+            device_options, 
+            index=0, 
+            key="shun_form_device"
+        )
 
     with filter_cols_1[3]:
         user_type_options = ["すべて", "新規", "リピート"]
-        selected_user_type = st.selectbox("新規/リピート", user_type_options, index=0, key="shun_form_user_type")
+        selected_user_type = st.selectbox(
+            "新規/リピート", 
+            user_type_options, 
+            index=0, 
+            key="shun_form_user_type"
+        )
 
     with filter_cols_2[0]:
         conversion_status_options = ["すべて", "コンバージョン", "非コンバージョン"]
@@ -5297,11 +5306,21 @@ elif selected_analysis == "瞬フォーム分析":
 
     with filter_cols_2[1]:
         channel_options = ["すべて"] + sorted(df['channel'].unique().tolist())
-        selected_channel = st.selectbox("チャネル", channel_options, index=0, key="shun_form_channel")
+        selected_channel = st.selectbox(
+            "チャネル", 
+            channel_options, 
+            index=0, 
+            key="shun_form_channel"
+        )
 
     with filter_cols_2[2]:
         source_medium_options = ["すべて"] + sorted(df['source_medium'].unique().tolist())
-        selected_source_medium = st.selectbox("参照元/メディア", source_medium_options, index=0, key="shun_form_source_medium")
+        selected_source_medium = st.selectbox(
+            "参照元/メディア", 
+            source_medium_options, 
+            index=0, 
+            key="shun_form_source_medium"
+        )
 
     # 期間設定
     today = df['event_date'].max().date()
@@ -5325,9 +5344,9 @@ elif selected_analysis == "瞬フォーム分析":
     elif selected_period == "カスタム":
         c1, c2 = st.columns(2)
         with c1:
-            start_date = st.date_input("開始日", df['event_date'].min(), key="shun_form_start")
+            start_date = st.date_input("開始日", df['event_date'].min().date(), key="shun_form_start")
         with c2:
-            end_date = st.date_input("終了日", df['event_date'].max(), key="shun_form_end")
+            end_date = st.date_input("終了日", df['event_date'].max().date(), key="shun_form_end")
 
     st.markdown("---")
 
@@ -5336,40 +5355,101 @@ elif selected_analysis == "瞬フォーム分析":
     conversion_session_ids = df[df['cv_type'].notna()]['session_id'].unique()
     df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
-    # データフィルタリング（現在はUIのみで、実際のデータには適用していません）
+    # データフィルタリング
     filtered_df = df[
         (df['event_date'] >= pd.to_datetime(start_date)) &
         (df['event_date'] <= pd.to_datetime(end_date))
     ]
-    # ... 他のフィルターも同様に適用 ...
+    if selected_lp:
+        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    if selected_device != "すべて":
+        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
+    if selected_user_type != "すべて":
+        filtered_df = filtered_df[filtered_df['user_type'] == selected_user_type]
+    if selected_conversion_status != "すべて":
+        filtered_df = filtered_df[filtered_df['conversion_status'] == selected_conversion_status]
+    if selected_channel != "すべて":
+        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
+    if selected_source_medium != "すべて":
+        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
+
+    # フォーム関連のイベントに絞る
+    form_events = ['form_start', 'form_submit', 'form_progress', 'form_field_interaction']
+    form_df = filtered_df[filtered_df['event_name'].isin(form_events)]
+
+    if form_df.empty:
+        st.warning("選択された条件に該当するフォームのデータがありません。")
+        st.stop()
 
     # --- スコアカード ---
     st.markdown('<div class="sub-header">スコアカード</div>', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
-    col5, col6, col7, col8 = st.columns(4)
-    
-    col1.metric("フォーム表示回数", "12,345")
-    col2.metric("フォーム表示直帰率", "12.3%")
-    col3.metric("フォーム送信率", "45.6%")
-    col4.metric("平均進行ページ数", "5.6")
-    col5.metric("平均滞在時間", "1:23")
-    col6.metric("ページ逆行率", "7.8%")
-    col7.metric("離脱防止POPから再開率", "89.0%")
-    col8.metric("一時保存からの再開率", "90.1%")
+
+    # KPI計算
+    form_start_sessions = form_df[form_df['event_name'] == 'form_start']['session_id'].nunique()
+    form_submit_sessions = form_df[form_df['event_name'] == 'form_submit']['session_id'].nunique()
+    form_submission_rate = safe_rate(form_submit_sessions, form_start_sessions) * 100
+
+    # フォーム表示直帰（フォームを開始したが、次のインタラクションがない）
+    form_interaction_sessions = form_df[form_df['event_name'] != 'form_start']['session_id'].nunique()
+    form_bounce_sessions = form_start_sessions - form_interaction_sessions
+    form_bounce_rate = safe_rate(form_bounce_sessions, form_start_sessions) * 100
+
+    # 平均進行ページ数
+    if 'form_page_number' in form_df.columns:
+        avg_progress_page = form_df.groupby('session_id')['form_page_number'].max().mean()
+    else:
+        avg_progress_page = 0
+
+    # 平均滞在時間
+    if 'form_duration_ms' in form_df.columns:
+        avg_form_duration = form_df.groupby('session_id')['form_duration_ms'].sum().mean() / 1000
+    else:
+        avg_form_duration = 0
+
+    # ページ逆行率
+    if 'form_direction' in form_df.columns:
+        backflow_sessions = form_df[form_df['form_direction'] == 'backward']['session_id'].nunique()
+        backflow_rate = safe_rate(backflow_sessions, form_start_sessions) * 100
+    else:
+        backflow_rate = 0
+
+    col1.metric("フォーム開始セッション", f"{form_start_sessions:,}")
+    col2.metric("フォーム送信セッション", f"{form_submit_sessions:,}")
+    col3.metric("フォーム送信率", f"{form_submission_rate:.1f}%")
+    col4.metric("フォーム表示直帰率", f"{form_bounce_rate:.1f}%", delta_color="inverse")
+    col1.metric("平均進行ページ数", f"{avg_progress_page:.1f}")
+    col2.metric("平均滞在時間", f"{avg_form_duration:.1f}秒")
+    col3.metric("ページ逆行率", f"{backflow_rate:.1f}%", delta_color="inverse")
 
     # --- ページごとの分析 ---
     st.markdown('<div class="sub-header">ページごとの分析</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">各ページの滞在時間や逆行率などを確認し、ユーザーがどの質問でつまずいているか（ボトルネック）を特定します。</div>', unsafe_allow_html=True)
     
     # ダミーデータ
-    data = {'ページ': ['ページ1', 'ページ2', 'ページ3', 'ページ4', 'ページ5'],
-            '平均滞在時間': ['0:10', '0:15', '0:12', '0:18', '0:20'],
-            'ページ逆行率': ['1.2%', '2.3%', '1.5%', '2.0%', '2.5%'],
-            '離脱防止POPから再開率': ['91.0%', '88.0%', '92.0%', '89.0%', '90.0%'],
-            '一時保存からの再開率': ['92.0%', '90.0%', '93.0%', '91.0%', '94.0%']}
-    df_page = pd.DataFrame(data)
+    if 'form_page_number' in form_df.columns:
+        page_analysis = form_df.groupby('form_page_number').agg(
+            セッション数=('session_id', 'nunique'),
+            平均滞在時間_ms=('form_duration_ms', 'mean'),
+        ).reset_index()
+        page_analysis.rename(columns={'form_page_number': 'ページ'}, inplace=True)
+        page_analysis['平均滞在時間(秒)'] = page_analysis['平均滞在時間_ms'] / 1000
 
-    st.dataframe(df_page, use_container_width=True)
+        # 離脱率
+        exit_counts = []
+        total_form_sessions = form_df['session_id'].nunique()
+        for page_num in page_analysis['ページ']:
+            reached_sessions = form_df[form_df['form_page_number'] >= page_num]['session_id'].nunique()
+            exited_sessions = form_df[form_df.groupby('session_id')['form_page_number'].transform('max') == page_num]['session_id'].nunique()
+            exit_rate = safe_rate(exited_sessions, reached_sessions) * 100
+            exit_counts.append({'ページ': page_num, '離脱率(%)': exit_rate})
+        
+        exit_df = pd.DataFrame(exit_counts)
+        page_analysis = pd.merge(page_analysis, exit_df, on='ページ', how='left')
+
+        st.dataframe(page_analysis[['ページ', 'セッション数', '平均滞在時間(秒)', '離脱率(%)']].style.format({'平均滞在時間(秒)': '{:.1f}', '離脱率(%)': '{:.1f}%'}), use_container_width=True, hide_index=True)
+    else:
+        st.info("フォームのページ別データを表示できません。")
 
     st.markdown("---")
 
@@ -5387,15 +5467,15 @@ elif selected_analysis == "瞬フォーム分析":
         with st.container():
             with st.spinner("AIがフォームデータを分析中..."):
                 st.markdown("#### 1. 現状の評価")
-                st.info("""
-                フォーム全体のパフォーマンスを分析した結果、**フォーム送信率（45.6%）** に改善の余地があることが分かりました。
-                特に、**ページ3** での平均滞在時間が短く、ページ逆行率が他のページより高い傾向にあります。このページがユーザーにとってのボトルネックとなっている可能性が高いです。
+                st.info(f"""
+                フォーム全体のパフォーマンスを分析した結果、**フォーム送信率（{form_submission_rate:.1f}%）** に改善の余地があることが分かりました。
+                特に、**ページ3** での平均滞在時間が短く、ページ逆行率が他のページより高い傾向にあります。このページがユーザーにとってのボトルネックとなっている可能性が高いです。（※この部分は現在デモ用の固定テキストです）
                 一方で、離脱防止POPや一時保存からの再開率は高く、フォームを完了したいというユーザーの意欲は高いと推察されます。
                 """)
 
                 st.markdown("#### 2. 今後の考察と改善案")
                 st.warning("""
-                **ページ3の質問内容の見直しが最優先課題です。**
+                **ページ3の質問内容の見直しが最優先課題です。（※この部分は現在デモ用の固定テキストです）**
                 - **考察**: ページ3の質問がユーザーにとって分かりにくい、または答えるのが面倒だと感じさせている可能性があります。
                 - **改善案**:
                     1. **質問文の簡略化**: より直感的で分かりやすい言葉に修正します。

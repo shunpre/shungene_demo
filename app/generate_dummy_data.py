@@ -171,6 +171,9 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
         "page_view",
         "swipe_page",
         "click",
+        "form_start",
+        "form_submit",
+        "form_progress",
         "scroll",
         "video_play",
         "conversion",
@@ -352,6 +355,10 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                 if page_num_dom > 1 and len(current_page_events) > 0 and current_page_events[-1]['direction'] == 'backward':
                     stay_ms *= (1 + config['backflow_stay_bonus'])
 
+                # フォーム関連のダミー列を初期化
+                form_page_number = None
+                form_duration_ms = None
+                form_direction = None
                 # Direction (逆行率)
                 direction = 'forward'
                 backflow_prob = config['backflow_base']
@@ -425,6 +432,9 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                     "p_value": p_value,
                     "cv_value": None,
                     "value": None,
+                    "form_page_number": form_page_number,
+                    "form_duration_ms": form_duration_ms,
+                    "form_direction": form_direction,
                 })
 
                 # クリックイベントを別イベントとして生成
@@ -505,6 +515,30 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                 cv_event['value'] = cv_event['cv_value']
                 current_page_events.append(cv_event)
             
+            # --- フォームイベントの生成 ---
+            if is_conversion and random.random() < 0.8: # CVしたセッションの80%がフォーム経由と仮定
+                form_start_event = current_page_events[-1].copy()
+                form_start_event['event_name'] = 'form_start'
+                form_start_event['event_timestamp'] += timedelta(milliseconds=100)
+                form_start_event['event_timestamp_jst'] = form_start_event['event_timestamp'] + timedelta(hours=9)
+                current_page_events.append(form_start_event)
+
+                num_form_pages = 5
+                total_form_duration = 0
+                for form_page in range(1, num_form_pages + 1):
+                    form_progress_event = form_start_event.copy()
+                    page_duration = random.randint(5000, 20000)
+                    total_form_duration += page_duration
+                    form_progress_event['event_name'] = 'form_progress'
+                    form_progress_event['event_timestamp'] += timedelta(milliseconds=total_form_duration)
+                    form_progress_event['event_timestamp_jst'] = form_progress_event['event_timestamp'] + timedelta(hours=9)
+                    form_progress_event['form_page_number'] = form_page
+                    form_progress_event['form_duration_ms'] = page_duration
+                    form_progress_event['form_direction'] = 'forward' if random.random() > 0.1 else 'backward'
+                    current_page_events.append(form_progress_event)
+                
+                # フォーム送信イベントはCVイベントとほぼ同じタイミング
+
             data.extend(current_page_events)
 
     # DataFrameに変換
@@ -513,23 +547,28 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
     # --- 意図的なアラートデータを注入 ---
     # 期間内にランダムな3日を「異常日」として設定
     if num_days >= 10 and not df.empty: # Ensure df is not empty before accessing columns
-        alert_dates = random.sample(
-            [start_date + timedelta(days=i) for i in range(3, num_days - 3)],
-            k=min(3, num_days - 5) # At least 3 days, or fewer if num_days is small
-        )
-        session_drop_rate = random.uniform(0.5, 0.8)
-        for alert_date in alert_dates:
-            # event_date is a datetime.date object in the generated data
-            # Compare with datetime.date object directly
-            
-            # セッション数を意図的に減らす (50-80%減)
-            num_sessions_on_alert_date = df[df['event_date'] == alert_date]['session_id'].nunique()
-            sessions_to_drop = int(num_sessions_on_alert_date * session_drop_rate)
-            if sessions_to_drop > 0:
-                sessions_to_drop_ids = df[df['event_date'] == alert_date]['session_id'].unique()
-                if len(sessions_to_drop_ids) > 0:
-                    selected_sessions_to_drop = random.sample(list(sessions_to_drop_ids), min(sessions_to_drop, len(sessions_to_drop_ids)))
-                    df = df[~((df['event_date'] == alert_date) & (df['session_id'].isin(selected_sessions_to_drop)))]
+        if scenario == '不調':
+            alert_dates = random.sample(
+                [d.date() for d in pd.date_range(start_date, end_date - timedelta(days=3))],
+                k=min(2, num_days - 5) # 不調時は2日ほどアラート日を設定
+            )
+            session_drop_rate = random.uniform(0.5, 0.8)
+            for alert_date in alert_dates:
+                # セッション数を意図的に減らす (50-80%減)
+                sessions_on_alert_date = df[df['event_date'] == alert_date]['session_id'].unique()
+                if len(sessions_on_alert_date) > 0:
+                    sessions_to_drop_count = int(len(sessions_on_alert_date) * session_drop_rate)
+                    sessions_to_drop_ids = random.sample(list(sessions_on_alert_date), sessions_to_drop_count)
+                    df = df[~((df['event_date'] == alert_date) & (df['session_id'].isin(sessions_to_drop_ids)))]
+
+                # CVRを意図的に下げる (CVイベントを削除)
+                cv_indices_on_alert_date = df[(df['event_date'] == alert_date) & (df['cv_type'].notna())].index
+                if not cv_indices_on_alert_date.empty:
+                    df.drop(cv_indices_on_alert_date, inplace=True)
+        elif scenario == '普通':
+            # 普通シナリオでは、CVRを少しだけ下げる日を1日設定
+            alert_date = (start_date + timedelta(days=random.randint(3, num_days - 3))).date()
+            cvr_drop_rate = 0.7 # 70%のCVを削除
 
             # CVRを意図的に下げる (CVイベントを削除)
             cv_indices_on_alert_date = df[(df['event_date'] == alert_date) & (df['cv_type'].notna())].index
