@@ -307,10 +307,19 @@ st.sidebar.markdown("##### 学習用機能")
 st.sidebar.markdown('<div class="graph-description" style="font-size: 0.8rem; margin-bottom: 1rem;">分析の練習用に、シナリオに基づいたダミーデータを生成できます。生成されたデータは、再度生成するまで全ページで共通して使用されます。</div>', unsafe_allow_html=True)
 
 scenario_options = ['好調', '普通', '不調']
+
+# セッション状態で管理されている現在のシナリオに基づいて、selectboxのデフォルトインデックスを設定
+try:
+    # st.session_state.data_scenario が存在すれば、そのインデックスを使用
+    default_scenario_index = scenario_options.index(st.session_state.data_scenario)
+except (AttributeError, ValueError):
+    # 存在しない、またはリストにない場合はデフォルトの '普通' (インデックス1) を使用
+    default_scenario_index = 1
+
 global_scenario = st.sidebar.selectbox(
     "データシナリオを選択",
     scenario_options,
-    index=1,
+    index=default_scenario_index,
     key="global_scenario_selector"
 )
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
@@ -606,8 +615,9 @@ if selected_analysis == "全体サマリー":
     # 基本メトリクス計算
     total_sessions = filtered_df['session_id'].nunique()
     total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = (total_conversions / total_sessions * 100) if total_sessions > 0 else 0
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
+    conversion_rate = safe_rate(total_conversions, total_sessions) * 100
+    clicked_sessions = filtered_df[filtered_df['event_name'] == 'click']['session_id'].nunique()
+    total_clicks = clicked_sessions
     click_rate = (total_clicks / total_sessions * 100) if total_sessions > 0 else 0
     avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
     avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
@@ -666,7 +676,8 @@ if selected_analysis == "全体サマリー":
         comp_total_sessions = comparison_df['session_id'].nunique()
         comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique()
         comp_conversion_rate = (comp_total_conversions / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click'])
+        comp_clicked_sessions = comparison_df[comparison_df['event_name'] == 'click']['session_id'].nunique()
+        comp_total_clicks = comp_clicked_sessions
         comp_click_rate = (comp_total_clicks / comp_total_sessions * 100) if comp_total_sessions > 0 else 0
         comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
         comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
@@ -1622,13 +1633,14 @@ elif selected_analysis == "ページ分析":
                 page_sessions = page_events['session_id'].nunique()
 
                 cta_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('cta|btn-primary', na=False))].shape[0]
-                cta_click_rate = safe_rate(cta_clicks, page_sessions) * 100
+                cta_clicked_sessions = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('cta|btn-primary', na=False))]['session_id'].nunique()
+                cta_click_rate = safe_rate(cta_clicked_sessions, page_sessions) * 100
 
-                fb_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('floating', na=False))].shape[0]
-                fb_click_rate = safe_rate(fb_clicks, page_sessions) * 100
+                fb_clicked_sessions = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('floating', na=False))]['session_id'].nunique()
+                fb_click_rate = safe_rate(fb_clicked_sessions, page_sessions) * 100
 
-                exit_pop_clicks = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('exit', na=False))].shape[0]
-                exit_pop_click_rate = safe_rate(exit_pop_clicks, page_sessions) * 100
+                exit_pop_clicked_sessions = page_events[(page_events['event_name'] == 'click') & (page_events['elem_classes'].str.contains('exit', na=False))]['session_id'].nunique()
+                exit_pop_click_rate = safe_rate(exit_pop_clicked_sessions, page_sessions) * 100
 
                 load_time = page_events['load_time_ms'].mean() if not page_events.empty else 0
                 
@@ -1956,7 +1968,8 @@ elif selected_analysis == "広告分析":
     # セグメント別統計を計算
     segment_stats = display_df.groupby(segment_col).agg(
         セッション数=('session_id', 'nunique'),
-        クリック数=('event_name', lambda x: (x == 'click').sum()),
+        # クリック数はユニークセッション数でカウント
+        クリック数=('session_id', lambda x: display_df.loc[x.index][display_df.loc[x.index]['event_name'] == 'click']['session_id'].nunique()),
         平均滞在時間=('stay_ms', 'mean'),
         平均到達ページ=('max_page_reached', 'mean')
     ).reset_index()
@@ -4144,8 +4157,8 @@ elif selected_analysis == "AIによる分析・考察":
 
     with filter_cols_1[1]:
         # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox(
+        lp_options = sorted(df['lp_base_url'].dropna().unique().tolist())
+        selected_lp_base_url = st.selectbox(
             "LP選択", 
             lp_options, 
             index=0 if lp_options else None,
@@ -4228,8 +4241,8 @@ elif selected_analysis == "AIによる分析・考察":
     ]
 
     # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
+    if selected_lp_base_url:
+        filtered_df = filtered_df[filtered_df['lp_base_url'] == selected_lp_base_url]
 
     # --- クロス分析用フィルター適用 ---
     if selected_device != "すべて":
@@ -4258,8 +4271,10 @@ elif selected_analysis == "AIによる分析・考察":
     # 基本メトリクス計算
     total_sessions = filtered_df['session_id'].nunique()
     total_conversions = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    conversion_rate = safe_rate(total_conversions, total_sessions) * 100
-    total_clicks = len(filtered_df[filtered_df['event_name'] == 'click'])
+    conversion_rate = safe_rate(total_conversions, total_sessions) * 100 # type: ignore
+    # クリックしたユニークなセッション数をカウント
+    clicked_sessions = filtered_df[filtered_df['event_name'] == 'click']['session_id'].nunique()
+    total_clicks = clicked_sessions
     click_rate = safe_rate(total_clicks, total_sessions) * 100
     avg_stay_time = filtered_df['stay_ms'].mean() / 1000  # 秒に変換
     avg_pages_reached = filtered_df.groupby('session_id')['max_page_reached'].max().mean()
@@ -4291,8 +4306,8 @@ elif selected_analysis == "AIによる分析・考察":
         if result is not None:
             comparison_df, comp_start, comp_end = result
             # 比較データにも同じフィルターを適用
-            if selected_lp:
-                comparison_df = comparison_df[comparison_df['page_location'] == selected_lp]
+            if selected_lp_base_url:
+                comparison_df = comparison_df[comparison_df['lp_base_url'] == selected_lp_base_url]
             # --- 比較データにもクロス分析用フィルターを適用 ---
             if selected_device != "すべて":
                 comparison_df = comparison_df[comparison_df['device_type'] == selected_device]
@@ -4317,7 +4332,8 @@ elif selected_analysis == "AIによる分析・考察":
         comp_total_sessions = comparison_df['session_id'].nunique()
         comp_total_conversions = comparison_df[comparison_df['cv_type'].notna()]['session_id'].nunique() # type: ignore
         comp_conversion_rate = safe_rate(comp_total_conversions, comp_total_sessions) * 100
-        comp_total_clicks = len(comparison_df[comparison_df['event_name'] == 'click']) # type: ignore
+        comp_clicked_sessions = comparison_df[comparison_df['event_name'] == 'click']['session_id'].nunique()
+        comp_total_clicks = comp_clicked_sessions
         comp_click_rate = safe_rate(comp_total_clicks, comp_total_sessions) * 100
         comp_avg_stay_time = comparison_df['stay_ms'].mean() / 1000
         comp_avg_pages_reached = comparison_df.groupby('session_id')['max_page_reached'].max().mean()
@@ -4419,7 +4435,7 @@ elif selected_analysis == "AIによる分析・考察":
     if st.session_state.ai_analysis_open:
         with st.container():
             # LPのURLからテキストコンテンツを抽出
-            lp_text_content = safe_extract_lp_text_content(extract_lp_text_content, selected_lp)
+            lp_text_content = safe_extract_lp_text_content(extract_lp_text_content, selected_lp_base_url)
             main_headline = lp_text_content['headlines'][0] if lp_text_content['headlines'] else "（ヘッドライン取得不可）"
             # f-string内でエラーを起こさないようにトリプルクォートを別の文字に置換
             main_headline_escaped = main_headline.replace('"""', "'''")
