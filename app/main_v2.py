@@ -1614,6 +1614,10 @@ elif selected_analysis == "ページ分析":
                 if page_num == 1:
                     backflow_rate = None
                     
+                # 最終ページの離脱率は表示しない
+                if page_num == actual_page_count:
+                    exit_rate = None
+                    
                 # このページに到達したユニークなセッション数を計算
                 page_sessions = page_events['session_id'].nunique()
 
@@ -1630,7 +1634,7 @@ elif selected_analysis == "ページ分析":
                 
                 # メトリクスを配置
                 metric_cols_1[0].metric("ビュー数", f"{views:,}")
-                metric_cols_1[1].metric("離脱率", f"{exit_rate:.1f}%")
+                metric_cols_1[1].metric("離脱率", f"{exit_rate:.1f}%" if exit_rate is not None else "---")
                 metric_cols_1[2].metric("平均滞在時間", f"{stay_time:.1f}秒")
                 metric_cols_1[3].metric("逆行率", f"{backflow_rate:.1f}%" if backflow_rate is not None else "---")
                 metric_cols_2[0].metric("CTAクリック率", f"{cta_click_rate:.1f}%")
@@ -1649,14 +1653,17 @@ elif selected_analysis == "ページ分析":
     st.markdown('<div class="graph-description">各ページの離脱率（横軸）と平均滞在時間（縦軸）を散布図に表示します。右下の「要注意ゾーン」（高離脱率・低滞在時間）にあるページは、最優先で改善が必要なボトルネックです。</div>', unsafe_allow_html=True)
 
     if len(page_stats) > 1:
+        # ポジショニングマップ用に最終ページを除外したデータを作成
+        plot_data = page_stats[page_stats['ページ番号'] != actual_page_count].copy()
+
         # 平均値を計算
-        avg_exit_rate = page_stats['離脱率'].mean()
+        avg_exit_rate = plot_data['離脱率'].mean()
         # 滞在時間はfiltered_dfから直接計算
         avg_stay_time = filtered_df['stay_ms'].mean() / 1000
 
         # 散布図を作成
         fig_scatter = px.scatter(
-            page_stats,
+            plot_data,
             x='離脱率',
             y='平均滞在時間(秒)',
             text='ページ番号',
