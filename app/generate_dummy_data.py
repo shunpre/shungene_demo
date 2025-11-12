@@ -478,16 +478,21 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                 event['total_duration_ms'] = session_total_duration_ms
             
             is_conversion = False
-            if max_page_reached >= num_pages:
-                pr_cv = config['theta_base'] * config['theta_click'] * config['theta_form']
-                pr_cv *= config['channel_coeff'].get(channel, {}).get('cvr', 1.0)
-                pr_cv *= config['device_coeff'].get(device_type, {}).get('cvr', 1.0)
-                pr_cv *= config['hour_seasonality'].get(session_start_time.hour, 1.0)
-                
-                if random.random() < pr_cv:
-                    is_conversion = True
             
-            if not is_conversion and random.random() < config['epsilon_leak_cvr']:
+            # --- 新しいCVR計算ロジック ---
+            # 1. ベースとなるセッションCVRを設定
+            session_cvr_prob = config['base_session_cvr']
+            
+            # 2. 到達ページ数に応じてCVRをブースト（全ページ到達で1.5倍）
+            page_reach_factor = 1.0 + (max_page_reached / num_pages) * 0.5 
+            session_cvr_prob *= page_reach_factor
+
+            # 3. チャネル、デバイス、時間帯の係数を適用
+            session_cvr_prob *= config['channel_coeff'].get(channel, {}).get('cvr', 1.0)
+            session_cvr_prob *= config['device_coeff'].get(device_type, {}).get('cvr', 1.0)
+            session_cvr_prob *= config['hour_seasonality'].get(session_start_time.hour, 1.0)
+            
+            if random.random() < session_cvr_prob:
                 is_conversion = True
 
             if is_conversion and current_page_events:

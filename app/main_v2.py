@@ -227,12 +227,17 @@ def safe_rate(numerator, denominator):
 
 # データ読み込み
 @st.cache_data(experimental_allow_widgets=True)
-def load_data():
-    """ダミーデータを読み込む"""
-    df = pd.read_csv("app/dummy_data.csv")
-    df['event_timestamp'] = pd.to_datetime(df['event_timestamp'])
-    df['event_date'] = pd.to_datetime(df['event_date'])
-    return df
+def load_initial_data():
+    """
+    初回起動時にデフォルトのダミーデータを生成する。
+    この関数は @st.cache_data により、セッション内で一度しか実行されない。
+    """
+    with st.spinner("初回データを生成しています..."):
+        df = generate_dummy_data(scenario='普通', num_days=30, num_pages=16)
+        # 生成されたデータはセッション状態で管理
+        st.session_state.generated_data = df
+        st.session_state.data_scenario = '普通' # 現在のシナリオを保存
+    return st.session_state.generated_data
 
 # 比較期間のデータを取得する関数
 def get_comparison_data(df, current_start, current_end, comparison_type):
@@ -269,8 +274,12 @@ def safe_extract_lp_text_content(extractor_func, url):
         return {"headlines": [], "body_copy": [], "ctas": []}
 
 # --- アプリケーションの初期化 ---
-df_original = load_data()
-st.sidebar.markdown(
+# セッションにデータがなければ、初回データを生成・ロード
+if 'generated_data' not in st.session_state:
+    load_initial_data()
+
+
+st.sidebar.markdown( # type: ignore
     """
     <a href="?page=使用ガイド" target="_self" style="
         display: block;
@@ -299,14 +308,15 @@ global_scenario = st.sidebar.selectbox(
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
         # 新しいダミーデータ生成関数を呼び出す
-        # シナリオ名を直接渡し、日数は30日、ページ数は10ページで固定
+        # シナリオ名を直接渡し、日数は30日、ページ数は16ページで固定 (LPの実際のページ数に合わせる)
         num_days_gen = 30
-        num_pages_gen = 10
+        num_pages_gen = 16 # 瞬フォームのページ数に合わせる
         st.session_state.generated_data = generate_dummy_data(
             scenario=global_scenario,
             num_days=num_days_gen,
             num_pages=num_pages_gen
         )
+        st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
     st.rerun()
 
 st.sidebar.markdown("---")
@@ -364,12 +374,8 @@ def assign_channel(row):
 
 # --- 分析対象のDataFrameを決定 ---
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
-if 'generated_data' in st.session_state:
-    df = st.session_state.generated_data
-    # ダミーデータ生成後は event_date が date 型なので、datetime 型に変換する
-    df['event_date'] = pd.to_datetime(df['event_date'])
-else:
-    df = df_original
+df = st.session_state.generated_data
+df['event_date'] = pd.to_datetime(df['event_date'])
 
 # グルーピングされたメニュー項目
 menu_groups = {
@@ -875,19 +881,19 @@ if selected_analysis == "全体サマリー":
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        show_session_trend = st.checkbox("セッション数の推移", value=False, key="summary_show_session_trend")
-        show_cvr_trend = st.checkbox("コンバージョン率の推移", value=False, key="summary_show_cvr_trend")
-        show_device_breakdown = st.checkbox("デバイス別分析", value=False, key="summary_show_device_breakdown")
+        show_session_trend = st.checkbox("セッション数の推移", value=False, key="summary_show_session_trend") # デフォルトをFalseに変更
+        show_cvr_trend = st.checkbox("コンバージョン率の推移", value=False, key="summary_show_cvr_trend") # デフォルトをFalseに変更
+        show_device_breakdown = st.checkbox("デバイス別分析", value=False, key="summary_show_device_breakdown") # デフォルトをFalseに変更
     
     with col2:
-        show_channel_breakdown = st.checkbox("チャネル別分析", value=False, key="summary_show_channel_breakdown")
-        show_funnel = st.checkbox("LP進行ファネル", value=False, key="summary_show_funnel")
+        show_channel_breakdown = st.checkbox("チャネル別分析", value=False, key="summary_show_channel_breakdown") # デフォルトをFalseに変更
+        show_funnel = st.checkbox("LP進行ファネル", value=False, key="summary_show_funnel") # デフォルトをFalseに変更
         show_hourly_cvr = st.checkbox("時間帯別CVR", value=False, key="summary_show_hourly_cvr")
     
     with col3:
         show_dow_cvr = st.checkbox("曜日別CVR", value=False, key="summary_show_dow_cvr") # type: ignore
-        show_utm_analysis = st.checkbox("UTM分析", value=False, key="summary_show_utm_analysis")
-        show_load_time = st.checkbox("読込時間分析", value=False, key="summary_show_load_time")
+        show_utm_analysis = st.checkbox("UTM分析", value=False, key="summary_show_utm_analysis") # デフォルトをFalseに変更
+        show_load_time = st.checkbox("読込時間分析", value=False, key="summary_show_load_time") # デフォルトをFalseに変更
     
     # セッション数の推移
     if show_session_trend:
