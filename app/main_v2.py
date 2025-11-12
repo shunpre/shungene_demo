@@ -235,7 +235,7 @@ def safe_rate(numerator, denominator):
     return numerator / denominator if denominator != 0 else 0.0
 
 # データ読み込み
-@st.cache_data(experimental_allow_widgets=True)
+@st.cache_data
 def load_initial_data():
     """
     初回起動時にデフォルトのダミーデータを生成する。
@@ -579,7 +579,7 @@ if selected_analysis == "全体サマリー":
     st.markdown('<div class="graph-description">現在選択されているフィルター条件で絞り込んだ生データをCSVファイルとしてダウンロードできます。日報や週報の作成にご活用ください。</div>', unsafe_allow_html=True)
 
     # CSVに変換する関数
-    @st.cache_data
+    @st.cache_data()
     def convert_df_to_csv(df_to_convert):
         # IMPORTANT: utf-8-sig を使用してExcelでの日本語文字化けを防ぐ
         return df_to_convert.to_csv(index=False).encode('utf-8-sig')
