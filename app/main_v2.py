@@ -15,8 +15,12 @@ try:
 except ImportError:
     extract_lp_text_content = None # type: ignore
 import time # ファイルの先頭でインポート
-# scipyをインポート（A/Bテストの有意差検定で使用）
-from .generate_dummy_data import generate_dummy_data
+try:
+    # パッケージとして実行される場合
+    from .generate_dummy_data import generate_dummy_data
+except ImportError:
+    # スクリプトとして直接実行される場合
+    from generate_dummy_data import generate_dummy_data
 
 # ページ設定
 st.set_page_config(
