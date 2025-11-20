@@ -444,7 +444,7 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
                 })
 
                 # クリックイベントを別イベントとして生成
-                if random.random() < 0.3: # 30%の確率で何らかのクリックが発生
+                if random.random() < 0.15: # 15%の確率で何らかのクリックが発生 (30% -> 15%に低減)
                     click_event = current_page_events[-1].copy() # page_viewイベントをベースに作成
                     click_event['event_name'] = 'click'
                     click_event['event_timestamp'] = event_timestamp + timedelta(milliseconds=random.randint(100, int(stay_ms/2))) # 滞在時間内にクリック
@@ -497,7 +497,8 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
             
             # --- 新しいCVR計算ロジック ---
             # 1. ベースとなるセッションCVRを設定
-            session_cvr_prob = config['base_session_cvr']
+            # page_reach_factorによるブースト(平均1.25倍程度)を見越して、ベース確率を割り引く
+            session_cvr_prob = config['base_session_cvr'] / 1.25
             
             # 2. 到達ページ数に応じてCVRをブースト（全ページ到達で1.5倍）
             page_reach_factor = 1.0 + (max_page_reached / num_pages) * 0.5 
@@ -511,40 +512,53 @@ def generate_dummy_data(scenario: str = '普通', num_days: int = 30, num_pages:
             if random.random() < session_cvr_prob:
                 is_conversion = True
 
+            # --- フォームイベントの生成 (CVの前に行う) ---
+            if is_conversion:
+                # CVしたセッションの80%がフォーム経由と仮定
+                if random.random() < 0.8:
+                    form_start_event = current_page_events[-1].copy()
+                    form_start_event['event_name'] = 'form_start'
+                    # 最後のページビューの少し後に開始
+                    form_start_event['event_timestamp'] += timedelta(milliseconds=500)
+                    form_start_event['event_timestamp_jst'] = form_start_event['event_timestamp'] + timedelta(hours=9)
+                    current_page_events.append(form_start_event)
+
+                    num_form_pages = 5
+                    total_form_duration = 0
+                    
+                    # フォーム進行イベント
+                    for form_page in range(1, num_form_pages + 1):
+                        form_progress_event = form_start_event.copy()
+                        page_duration = random.randint(5000, 20000)
+                        total_form_duration += page_duration
+                        
+                        form_progress_event['event_name'] = 'form_progress'
+                        form_progress_event['event_timestamp'] = form_start_event['event_timestamp'] + timedelta(milliseconds=total_form_duration)
+                        form_progress_event['event_timestamp_jst'] = form_progress_event['event_timestamp'] + timedelta(hours=9)
+                        form_progress_event['form_page_number'] = form_page
+                        form_progress_event['form_duration_ms'] = page_duration
+                        form_progress_event['form_direction'] = 'forward' if random.random() > 0.1 else 'backward'
+                        current_page_events.append(form_progress_event)
+                    
+                    # フォーム送信イベント
+                    form_submit_event = current_page_events[-1].copy()
+                    form_submit_event['event_name'] = 'form_submit'
+                    form_submit_event['event_timestamp'] += timedelta(milliseconds=1000) # 最後の入力から1秒後
+                    form_submit_event['event_timestamp_jst'] = form_submit_event['event_timestamp'] + timedelta(hours=9)
+                    current_page_events.append(form_submit_event)
+
+            # --- コンバージョンイベントの生成 ---
             if is_conversion and current_page_events:
                 cv_event = current_page_events[-1].copy()
                 cv_event['event_name'] = 'conversion'
-                cv_event['event_timestamp'] = event_timestamp + timedelta(milliseconds=random.randint(1000, 5000))
+                # 直前のイベント（フォーム送信など）から少し後
+                cv_event['event_timestamp'] += timedelta(milliseconds=random.randint(500, 2000))
                 cv_event['event_timestamp_jst'] = cv_event['event_timestamp'] + timedelta(hours=9)
                 cv_event['cv_type'] = random.choice(["primary", "micro"])
                 cv_event['cv_value'] = random.uniform(1000, 50000)
                 cv_event['value'] = cv_event['cv_value']
                 current_page_events.append(cv_event)
             
-            # --- フォームイベントの生成 ---
-            if is_conversion and random.random() < 0.8: # CVしたセッションの80%がフォーム経由と仮定
-                form_start_event = current_page_events[-1].copy()
-                form_start_event['event_name'] = 'form_start'
-                form_start_event['event_timestamp'] += timedelta(milliseconds=100)
-                form_start_event['event_timestamp_jst'] = form_start_event['event_timestamp'] + timedelta(hours=9)
-                current_page_events.append(form_start_event)
-
-                num_form_pages = 5
-                total_form_duration = 0
-                for form_page in range(1, num_form_pages + 1):
-                    form_progress_event = form_start_event.copy()
-                    page_duration = random.randint(5000, 20000)
-                    total_form_duration += page_duration
-                    form_progress_event['event_name'] = 'form_progress'
-                    form_progress_event['event_timestamp'] += timedelta(milliseconds=total_form_duration)
-                    form_progress_event['event_timestamp_jst'] = form_progress_event['event_timestamp'] + timedelta(hours=9)
-                    form_progress_event['form_page_number'] = form_page
-                    form_progress_event['form_duration_ms'] = page_duration
-                    form_progress_event['form_direction'] = 'forward' if random.random() > 0.1 else 'backward'
-                    current_page_events.append(form_progress_event)
-                
-                # フォーム送信イベントはCVイベントとほぼ同じタイミング
-
             data.extend(current_page_events)
 
     # DataFrameに変換
