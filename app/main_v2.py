@@ -384,11 +384,9 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
         )
         st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
         st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
-    # ページを「全体サマリー」に設定して再実行（バージョン互換性対応）
-    try:
-        query_params_proxy["page"] = "全体サマリー"
-    except AttributeError:
-        query_params_proxy["page"] = "全体サマリー"
+    # ページリダイレクトを削除し、現在のページを維持する
+    # query_params_proxy["page"] = "全体サマリー" の処理を削除
+    pass
 
     st.rerun()
 
