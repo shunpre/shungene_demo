@@ -188,19 +188,8 @@ st.markdown("""
         border: 1px solid #003080 !important;
     }
     /* データ生成ボタンだけ赤色にする（優先度を最大限に上げる） */
-    div[data-testid="stSidebarUserContent"] .data-generation-button-container .stButton>button[kind="primary"],
-    div[data-testid="stSidebarUserContent"] .data-generation-button-container button[kind="primary"] {
-        background-color: #ff4b4b !important;
-        color: white !important;
-        border: 1px solid #ff4b4b !important;
-        font-weight: normal !important;
-    }
-    div[data-testid="stSidebarUserContent"] .data-generation-button-container .stButton>button[kind="primary"]:hover,
-    div[data-testid="stSidebarUserContent"] .data-generation-button-container button[kind="primary"]:hover {
-        background-color: #ff6b6b !important;
-        color: white !important;
-        border: 1px solid #ff6b6b !important;
-    }
+    /* Note: JavaScriptで制御するため、ここのCSSは削除または無効化 */
+
     /* コンテンツエリアのプライマリボタン（AI分析を実行など）とダウンロードボタンを赤色にする */
     section.main .stButton>button[kind="primary"],
     section.main div[data-testid="stDownloadButton"] > button {
@@ -440,8 +429,7 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
 st.sidebar.markdown("""
 <script>
 (function() {
-    // ページ読み込み後に実行
-    setTimeout(function() {
+    function applyRedButtonStyle() {
         // サイドバー内の全てのprimaryボタンを取得
         const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
         if (sidebar) {
@@ -449,23 +437,40 @@ st.sidebar.markdown("""
             buttons.forEach(function(button) {
                 // ボタンのテキストが「ダミーデータを生成」の場合のみ赤色にする
                 if (button.textContent.includes('ダミーデータを生成')) {
-                    button.style.backgroundColor = '#ff4b4b';
-                    button.style.borderColor = '#ff4b4b';
-                    button.style.fontWeight = 'normal';
+                    // !important を指定してCSSの優先度を上書きする
+                    button.style.setProperty('background-color', '#ff4b4b', 'important');
+                    button.style.setProperty('border-color', '#ff4b4b', 'important');
+                    button.style.setProperty('font-weight', 'normal', 'important');
                     
                     // ホバー時のイベントも追加
-                    button.addEventListener('mouseenter', function() {
-                        this.style.backgroundColor = '#ff6b6b';
-                        this.style.borderColor = '#ff6b6b';
-                    });
-                    button.addEventListener('mouseleave', function() {
-                        this.style.backgroundColor = '#ff4b4b';
-                        this.style.borderColor = '#ff4b4b';
-                    });
+                    button.onmouseenter = function() {
+                        this.style.setProperty('background-color', '#ff6b6b', 'important');
+                        this.style.setProperty('border-color', '#ff6b6b', 'important');
+                    };
+                    button.onmouseleave = function() {
+                        this.style.setProperty('background-color', '#ff4b4b', 'important');
+                        this.style.setProperty('border-color', '#ff4b4b', 'important');
+                    };
                 }
             });
         }
-    }, 100);
+    }
+
+    // 初回実行
+    setTimeout(applyRedButtonStyle, 100);
+    setTimeout(applyRedButtonStyle, 500);
+    setTimeout(applyRedButtonStyle, 1000);
+
+    // MutationObserverでDOMの変化を監視して適用し続ける
+    const observer = new MutationObserver(function(mutations) {
+        applyRedButtonStyle();
+    });
+
+    // 監視開始
+    const targetNode = window.parent.document.body;
+    if (targetNode) {
+        observer.observe(targetNode, { childList: true, subtree: true });
+    }
 })();
 </script>
 """, unsafe_allow_html=True)
