@@ -28,6 +28,57 @@ from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
 import app.ai_analysis as ai_analysis
 
+# --- Streamlitバージョン互換性のためのプロキシクラス ---
+class QueryParamsProxy:
+    """
+    Streamlitのバージョンによって query_params の仕様が異なるため、
+    それを吸収するためのプロキシクラス。
+    st.query_params (新しいバージョン) があればそれを使い、
+    なければ st.experimental_get_query_params / st.experimental_set_query_params (古いバージョン) を使う。
+    """
+    def __init__(self):
+        if hasattr(st, "query_params"):
+            self._use_new_api = True
+            self._params = st.query_params
+        else:
+            self._use_new_api = False
+
+    def __getitem__(self, key):
+        if self._use_new_api:
+            return self._params[key]
+        else:
+            params = st.experimental_get_query_params()
+            if key in params:
+                return params[key][0] # 古いAPIはリストを返すため先頭を取得
+            raise KeyError(key)
+
+    def get(self, key, default=None):
+        if self._use_new_api:
+            return self._params.get(key, default)
+        else:
+            params = st.experimental_get_query_params()
+            if key in params:
+                return params[key][0]
+            return default
+
+    def __setitem__(self, key, value):
+        if self._use_new_api:
+            self._params[key] = value
+        else:
+            # 既存のパラメータを取得して更新
+            params = st.experimental_get_query_params()
+            params[key] = [str(value)] # リストとして保存
+            st.experimental_set_query_params(**params)
+
+    def __contains__(self, key):
+        if self._use_new_api:
+            return key in self._params
+        else:
+            return key in st.experimental_get_query_params()
+
+# プロキシのインスタンスを作成
+query_params_proxy = QueryParamsProxy()
+
 # ページ設定
 st.set_page_config(
     page_title="瞬ジェネ AIアナライザー",
@@ -53,7 +104,7 @@ st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
 # --- ページ遷移関数 ---
 def navigate_to(page_name):
     """指定されたページに遷移する"""
-    st.query_params["page"] = page_name
+    query_params_proxy["page"] = page_name
 
 # カスタムCSS
 st.markdown("""
@@ -335,9 +386,9 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
         st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
     # ページを「全体サマリー」に設定して再実行（バージョン互換性対応）
     try:
-        st.query_params["page"] = "全体サマリー"
+        query_params_proxy["page"] = "全体サマリー"
     except AttributeError:
-        st.query_params["page"] = "全体サマリー"
+        query_params_proxy["page"] = "全体サマリー"
 
     st.rerun()
 
@@ -432,9 +483,7 @@ df = df[~((df['utm_source_display'] == '(direct)') & (df['utm_medium'] != '(none
 DEFAULT_PAGE = "全体サマリー"
 
 # URLクエリから表示するページを取得
-# URLクエリから表示するページを取得
-query_params = st.query_params
-selected_analysis = query_params.get("page", DEFAULT_PAGE)
+selected_analysis = query_params_proxy.get("page", DEFAULT_PAGE)
 
 # 他の処理がst.session_stateを参照している場合に備え、同期させる
 st.session_state.selected_analysis = selected_analysis
@@ -456,9 +505,9 @@ for group_name, items in menu_groups.items():
         # target="_self" は、iframe内で遷移を完結させるために重要
         if st.sidebar.button(item, key=button_key, use_container_width=True):
             try:
-                st.query_params["page"] = item
+                query_params_proxy["page"] = item
             except AttributeError:
-                st.query_params["page"] = item
+                query_params_proxy["page"] = item
             st.rerun()
 
     st.sidebar.markdown("---")
