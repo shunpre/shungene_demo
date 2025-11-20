@@ -161,51 +161,17 @@ st.markdown("""
         color: #333 !important;
         border: 1px solid #002060 !important;
     }
-    /* サイドバーのアクティブ（選択中）ボタンを紺色でハイライト */
-    div[data-testid="stSidebarUserContent"] .stButton>button[data-active="true"] {
-        background-color: #002060 !important;
-        color: white !important;
-        border: 1px solid #002060 !important;
-        font-weight: bold !important;
-    }
-    /* アクティブボタンのホバー時も紺色を維持 */
-    div[data-testid="stSidebarUserContent"] .stButton>button[data-active="true"]:hover {
-        background-color: #003080 !important;
-        color: white !important;
-        border: 1px solid #003080 !important;
-    }
-    /* サイドバーのprimaryボタン（選択中ページ）を紺色に */
-    div[data-testid="stSidebarUserContent"] .stButton>button[kind="primary"] {
-        background-color: #002060 !important;
-        color: white !important;
-        border: 1px solid #002060 !important;
-        font-weight: bold !important;
-    }
-    /* サイドバーのprimaryボタンのホバー時 */
-    div[data-testid="stSidebarUserContent"] .stButton>button[kind="primary"]:hover {
-        background-color: #003080 !important;
-        color: white !important;
-        border: 1px solid #003080 !important;
-    }
-    /* データ生成ボタンだけ赤色にする（優先度を最大限に上げる） */
-    /* Note: JavaScriptで制御するため、ここのCSSは削除または無効化 */
-
-    /* コンテンツエリアのプライマリボタン（AI分析を実行など）とダウンロードボタンを赤色にする */
-    section.main .stButton>button[kind="primary"],
-    section.main div[data-testid="stDownloadButton"] > button {
+    
+    /* プライマリボタン（データ生成、ダウンロードなど）を赤色にする */
+    .stButton>button[kind="primary"] {
         background-color: #ff4b4b !important;
         color: white !important;
-        border-color: #ff4b4b !important;
-        transition: all 0.2s;
+        border: 1px solid #ff4b4b !important;
     }
-    /* コンテンツエリアの通常ボタン（よくある質問など）のホバー時とフォーカス時のスタイルを統一し、赤枠を防ぐ */
-    section.main .stButton>button[kind="secondary"]:hover,
-    section.main .stButton>button[kind="secondary"]:focus,
-    section.main .stButton>button[kind="secondary"]:focus-visible {
-        background-color: #e6f0ff !important;
-        color: #333 !important;
-        border: 1px solid #002060 !important;
-        box-shadow: none !important; /* フォーカス時の影を消す */
+    .stButton>button[kind="primary"]:hover {
+        background-color: #ff6b6b !important;
+        color: white !important;
+        border: 1px solid #ff6b6b !important;
     }
     /* st.info のスタイルを強制的に青系に固定 */
     div[data-testid="stInfo"] {
@@ -426,55 +392,7 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
     st.rerun()
 
 # JavaScriptでデータ生成ボタンを赤色にする
-st.sidebar.markdown("""
-<script>
-(function() {
-    function applyRedButtonStyle() {
-        // サイドバー内の全てのprimaryボタンを取得
-        const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
-        if (sidebar) {
-            const buttons = sidebar.querySelectorAll('button[kind="primary"]');
-            buttons.forEach(function(button) {
-                // ボタンのテキストが「ダミーデータを生成」の場合のみ赤色にする
-                if (button.textContent.includes('ダミーデータを生成')) {
-                    // !important を指定してCSSの優先度を上書きする
-                    button.style.setProperty('background-color', '#ff4b4b', 'important');
-                    button.style.setProperty('border-color', '#ff4b4b', 'important');
-                    button.style.setProperty('font-weight', 'normal', 'important');
-                    
-                    // ホバー時のイベントも追加
-                    button.onmouseenter = function() {
-                        this.style.setProperty('background-color', '#ff6b6b', 'important');
-                        this.style.setProperty('border-color', '#ff6b6b', 'important');
-                    };
-                    button.onmouseleave = function() {
-                        this.style.setProperty('background-color', '#ff4b4b', 'important');
-                        this.style.setProperty('border-color', '#ff4b4b', 'important');
-                    };
-                }
-            });
-        }
-    }
-
-    // 初回実行
-    setTimeout(applyRedButtonStyle, 100);
-    setTimeout(applyRedButtonStyle, 500);
-    setTimeout(applyRedButtonStyle, 1000);
-
-    // MutationObserverでDOMの変化を監視して適用し続ける
-    const observer = new MutationObserver(function(mutations) {
-        applyRedButtonStyle();
-    });
-
-    // 監視開始
-    const targetNode = window.parent.document.body;
-    if (targetNode) {
-        observer.observe(targetNode, { childList: true, subtree: true });
-    }
-})();
-</script>
-""", unsafe_allow_html=True)
-
+# Note: CSSで制御するため、ここのJSは削除
 
 st.sidebar.markdown("---")
 
@@ -581,10 +499,12 @@ for group_name, items in menu_groups.items():
         # リンクがクリックされたかどうかを判定するためのユニークなキー
         button_key = f"nav_button_{item}"
 
-        # 選択中のページはprimaryボタン、それ以外はsecondaryボタン
-        button_type = "primary" if is_active else "secondary"
+        # 選択中のページはテキストで強調、ボタン自体は全てsecondary（無色）
+        # 選択中の場合は "▶ " を付与して強調
+        label = f"▶ {item}" if is_active else item
+        button_type = "secondary"
         
-        if st.sidebar.button(item, key=button_key, use_container_width=True, type=button_type):
+        if st.sidebar.button(label, key=button_key, use_container_width=True, type=button_type):
             try:
                 query_params_proxy["page"] = item
             except AttributeError:
