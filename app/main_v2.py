@@ -150,11 +150,53 @@ st.markdown("""
         color: #333;
         border: 1px solid #f0f2f6;
     }
+    /* サイドバーのボタンを左揃えにする */
+    div[data-testid="stSidebarUserContent"] .stButton>button {
+        text-align: left !important;
+        justify-content: flex-start !important;
+    }
     /* サイドバーの通常ボタンのホバー時 */
     div[data-testid="stSidebarUserContent"] .stButton>button[kind="secondary"]:hover {
         background-color: #e6f0ff !important;
         color: #333 !important;
         border: 1px solid #002060 !important;
+    }
+    /* サイドバーのアクティブ（選択中）ボタンを紺色でハイライト */
+    div[data-testid="stSidebarUserContent"] .stButton>button[data-active="true"] {
+        background-color: #002060 !important;
+        color: white !important;
+        border: 1px solid #002060 !important;
+        font-weight: bold !important;
+    }
+    /* アクティブボタンのホバー時も紺色を維持 */
+    div[data-testid="stSidebarUserContent"] .stButton>button[data-active="true"]:hover {
+        background-color: #003080 !important;
+        color: white !important;
+        border: 1px solid #003080 !important;
+    }
+    /* サイドバーのprimaryボタン（選択中ページ）を紺色に */
+    div[data-testid="stSidebarUserContent"] .stButton>button[kind="primary"] {
+        background-color: #002060 !important;
+        color: white !important;
+        border: 1px solid #002060 !important;
+        font-weight: bold !important;
+    }
+    /* サイドバーのprimaryボタンのホバー時 */
+    div[data-testid="stSidebarUserContent"] .stButton>button[kind="primary"]:hover {
+        background-color: #003080 !important;
+        color: white !important;
+        border: 1px solid #003080 !important;
+    }
+    /* データ生成ボタンだけ赤色にする */
+    .generate-data-btn-wrapper .stButton>button[kind="primary"] {
+        background-color: #ff4b4b !important;
+        color: white !important;
+        border: 1px solid #ff4b4b !important;
+    }
+    .generate-data-btn-wrapper .stButton>button[kind="primary"]:hover {
+        background-color: #ff6b6b !important;
+        color: white !important;
+        border: 1px solid #ff6b6b !important;
     }
     /* コンテンツエリアのプライマリボタン（AI分析を実行など）とダウンロードボタンを赤色にする */
     section.main .stButton>button[kind="primary"],
@@ -370,6 +412,8 @@ global_scenario = st.sidebar.selectbox(
     key="global_scenario_selector"
 )
 
+# データ生成ボタンを赤色にするためのマーカー
+st.sidebar.markdown('<div class="generate-data-btn-wrapper">', unsafe_allow_html=True)
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
         # 新しいダミーデータ生成関数を呼び出す
@@ -389,6 +433,8 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
     pass
 
     st.rerun()
+
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 
@@ -490,18 +536,15 @@ for group_name, items in menu_groups.items():
     st.sidebar.markdown(f"**{group_name}**")
     for item in items: # type: ignore
         # 現在のページ(selected_analysis)とアイテムが一致するか判定
-        if selected_analysis == item:
-            css_class = "active" # 一致すれば "active" クラスを付与
-        else:
-            css_class = ""       # 一致しなければなし
+        is_active = (selected_analysis == item)
         
         # リンクがクリックされたかどうかを判定するためのユニークなキー
         button_key = f"nav_button_{item}"
 
-        # HTMLのリンクをst.markdownで作成
-        # href に ?page={item}#top-anchor を設定
-        # target="_self" は、iframe内で遷移を完結させるために重要
-        if st.sidebar.button(item, key=button_key, use_container_width=True):
+        # 選択中のページはprimaryボタン、それ以外はsecondaryボタン
+        button_type = "primary" if is_active else "secondary"
+        
+        if st.sidebar.button(item, key=button_key, use_container_width=True, type=button_type):
             try:
                 query_params_proxy["page"] = item
             except AttributeError:
