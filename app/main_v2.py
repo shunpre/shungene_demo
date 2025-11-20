@@ -2892,6 +2892,7 @@ elif selected_analysis == "LPOの基礎知識":
         dragmode=False,
         legend=dict(orientation="h", yanchor="bottom", y=-0.3, xanchor="center", x=0.5)
     )
+    fig.update_traces(hovertemplate='%{x}<br>%{fullData.name}: %{y:.2f}%<extra></extra>')
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_interaction_contribution')
 
     st.markdown("---")
@@ -3146,7 +3147,11 @@ elif selected_analysis == "動画・スクロール分析":
     scroll_stats['平均逆行率(%)'] = scroll_stats['平均逆行率'] * 100
     
     fig = px.bar(scroll_stats, x='ページ番号', y='平均逆行率(%)', text='平均逆行率(%)')
-    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+    fig.update_traces(
+        texttemplate='%{text:.1f}%',
+        textposition='outside',
+        hovertemplate='ページ: %{x}<br>逆行率: %{y:.1f}%<extra></extra>'
+    )
     fig.update_layout(height=400, showlegend=False, xaxis_title='ページ番号', yaxis_title='平均逆行率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_18') # This already has use_container_width=True
     
@@ -3187,7 +3192,11 @@ elif selected_analysis == "動画・スクロール分析":
         })
         
         fig = px.bar(comparison_data, x='グループ', y='コンバージョン率', text='コンバージョン率')
-        fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+        fig.update_traces(
+            texttemplate='%{text:.2f}%',
+            textposition='outside',
+            hovertemplate='%{x}<br>CVR: %{y:.2f}%<extra></extra>'
+        )
         fig.update_layout(height=400, showlegend=False, yaxis_title='コンバージョン率 (%)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_19') # This already has use_container_width=True
     
@@ -3212,7 +3221,11 @@ elif selected_analysis == "動画・スクロール分析":
     scroll_range_stats['コンバージョン率'] = scroll_range_stats.apply(lambda row: safe_rate(row['コンバージョン数'], row['セッション数']) * 100, axis=1)
     
     fig = px.bar(scroll_range_stats, x='逆行率', y='コンバージョン率', text='コンバージョン率')
-    fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
+    fig.update_traces(
+        texttemplate='%{text:.2f}%',
+        textposition='outside',
+        hovertemplate='逆行率: %{x}<br>CVR: %{y:.2f}%<extra></extra>'
+    )
     fig.update_layout(height=400, showlegend=False, xaxis_title='逆行率', yaxis_title='コンバージョン率 (%)', dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_20') # This already has use_container_width=True
 
@@ -3486,6 +3499,15 @@ elif selected_analysis == "時系列分析":
     ], key="timeseries_metric_select")
     
     fig = px.line(daily_stats, x='日付', y=metric_to_plot, markers=True)
+    # Add appropriate hovertemplate based on metric type
+    if '率' in metric_to_plot or 'CVR' in metric_to_plot or 'CTR' in metric_to_plot:
+        fig.update_traces(hovertemplate='日付: %{x}<br>' + metric_to_plot + ': %{y:.2f}<extra></extra>')
+    elif 'ページ' in metric_to_plot:
+        fig.update_traces(hovertemplate='日付: %{x}<br>' + metric_to_plot + ': %{y:.2f}<extra></extra>')
+    elif '時間' in metric_to_plot:
+        fig.update_traces(hovertemplate='日付: %{x}<br>' + metric_to_plot + ': %{y:.2f}<extra></extra>')
+    else:
+        fig.update_traces(hovertemplate='日付: %{x}<br>' + metric_to_plot + ': %{y:,}<extra></extra>')
     fig.update_layout(height=400, yaxis_title=metric_to_plot, dragmode=False)
     st.plotly_chart(fig, use_container_width=True, key='plotly_chart_21')
     
@@ -3674,6 +3696,7 @@ elif selected_analysis == "リアルタイムビュー":
         rt_trend.columns = ['時刻', 'セッション数']
 
         fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
+        fig.update_traces(hovertemplate='時刻: %{x}<br>セッション数: %{y:,}<extra></extra>')
         fig.update_layout(height=400, yaxis_title='セッション数', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
     else:
@@ -3880,7 +3903,11 @@ elif selected_analysis == "デモグラフィック情報":
         }), use_container_width=True, hide_index=True)
 
         fig = px.bar(age_demo_df, x='年齢層', y='CVR (%)', text='CVR (%)')
-        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+        fig.update_traces(
+            texttemplate='%{text:.1f}%',
+            textposition='outside',
+            hovertemplate='%{x}<br>CVR: %{y:.1f}%<extra></extra>'
+        )
         fig.update_layout(height=400, showlegend=False, xaxis_title='年齢層', yaxis_title='CVR (%)', dragmode=False)
         st.plotly_chart(fig, use_container_width=True, key='plotly_chart_age_cvr')
 
@@ -3916,7 +3943,11 @@ elif selected_analysis == "デモグラフィック情報":
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_pie')
         with col2:
             fig = px.bar(gender_demo_df, x='性別', y='CVR (%)', text='CVR (%)')
-            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig.update_traces(
+                texttemplate='%{text:.1f}%',
+                textposition='outside',
+                hovertemplate='%{x}<br>CVR: %{y:.1f}%<extra></extra>'
+            )
             fig.update_layout(height=400, showlegend=False, xaxis_title='性別', yaxis_title='CVR (%)', dragmode=False)
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_gender_cvr')
     
@@ -4037,7 +4068,11 @@ elif selected_analysis == "デモグラフィック情報":
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_pie')
         with col2:
             fig = px.bar(device_demo_df, x='デバイス', y='CVR (%)', text='CVR (%)')
-            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig.update_traces(
+                texttemplate='%{text:.1f}%',
+                textposition='outside',
+                hovertemplate='%{x}<br>CVR: %{y:.1f}%<extra></extra>'
+            )
             fig.update_layout(height=400, showlegend=False, xaxis_title='デバイス', yaxis_title='CVR (%)', dragmode=False)
             st.plotly_chart(fig, use_container_width=True, key='plotly_chart_device_cvr')
 
