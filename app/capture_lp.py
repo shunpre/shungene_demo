@@ -26,7 +26,8 @@ def capture_lp_screenshot(url: str, width: int = 1200, height: int = 1500) -> Im
     try:
         # Screenshot APIを使用（無料のサービス）
         # https://api.screenshotmachine.com を使用
-        api_url = f"https://api.screenshotmachine.com/?key=demo&url={url}&dimension={width}x{height}"
+        api_key = st.secrets.get("screenshot_machine_key", "demo")
+        api_url = f"https://api.screenshotmachine.com/?key={api_key}&url={url}&dimension={width}x{height}"
         
         response = requests.get(api_url, timeout=30)
         

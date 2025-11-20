@@ -26,6 +26,7 @@ import time
 
 from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
+import app.ai_analysis as ai_analysis
 
 # ページ設定
 st.set_page_config(
@@ -52,10 +53,7 @@ st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
 # --- ページ遷移関数 ---
 def navigate_to(page_name):
     """指定されたページに遷移する"""
-    try:
-        st.query_params["page"] = page_name
-    except AttributeError:
-        st.experimental_set_query_params(page=page_name)
+    st.query_params["page"] = page_name
 
 # カスタムCSS
 st.markdown("""
@@ -339,7 +337,7 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
     try:
         st.query_params["page"] = "全体サマリー"
     except AttributeError:
-        st.experimental_set_query_params(page="全体サマリー")
+        st.query_params["page"] = "全体サマリー"
 
     st.rerun()
 
@@ -434,15 +432,9 @@ df = df[~((df['utm_source_display'] == '(direct)') & (df['utm_medium'] != '(none
 DEFAULT_PAGE = "全体サマリー"
 
 # URLクエリから表示するページを取得
-try:
-    # Streamlit 1.10.0以降の推奨される方法
-    query_params = st.query_params.to_dict()
-    selected_analysis = query_params.get("page", DEFAULT_PAGE)
-except AttributeError:
-    # 古いStreamlitバージョン向けのフォールバック
-    query_params = st.experimental_get_query_params()
-    # experimental_get_query_paramsは値がリストで返されるため、最初の要素を取得
-    selected_analysis = query_params.get("page", [DEFAULT_PAGE])[0]
+# URLクエリから表示するページを取得
+query_params = st.query_params
+selected_analysis = query_params.get("page", DEFAULT_PAGE)
 
 # 他の処理がst.session_stateを参照している場合に備え、同期させる
 st.session_state.selected_analysis = selected_analysis
@@ -466,7 +458,7 @@ for group_name, items in menu_groups.items():
             try:
                 st.query_params["page"] = item
             except AttributeError:
-                st.experimental_set_query_params(page=item)
+                st.query_params["page"] = item
             st.rerun()
 
     st.sidebar.markdown("---")
@@ -1279,25 +1271,16 @@ if selected_analysis == "全体サマリー":
     if st.session_state.summary_ai_open:
         with st.container():
             with st.spinner("AIが全体データを分析中..."):
-                evaluation_text = f"""
-                現在のLPパフォーマンスを総合的に評価します。
-                - **強み**: 平均滞在時間({avg_stay_time:.1f}秒)や最終CTA到達率({final_cta_rate:.1f}%)は比較的良好で、一度興味を持ったユーザーはコンテンツを読み進める傾向にあります。
-                - **弱み**: コンバージョン率({conversion_rate:.2f}%)とFV残存率({fv_retention_rate:.1f}%)が課題です。特に、多くのユーザーが最初のページ（ファーストビュー）で離脱している可能性が高いです。
-                """
-                st.info(evaluation_text)
-
-                recommendation_text = """
-                **最優先課題は「ファーストビューの改善」です。**
-                多くのユーザーが最初の接点で離脱しているため、ここを改善することが全体のパフォーマンス向上に最も効果的です。
-                
-                **具体的な改善アクション案:**
-                1. **キャッチコピーの見直し**: ターゲットに響く、より強力なメッセージに変更する。
-                2. **メインビジュアルの変更**: ユーザーの興味を引く画像や動画に差し替える。
-                3. **A/Bテストの実施**: 上記の要素で複数のパターンを用意し、「A/Bテスト分析」機能で効果を検証する。
-                
-                次に、「ページ分析」機能を用いて、ファーストビュー以降で離脱率が特に高い「ボトルネックページ」を特定し、改善を進めましょう。
-                """
-                st.warning(recommendation_text)
+                kpi_data = {
+                    "sessions": total_sessions,
+                    "conversions": total_conversions,
+                    "conversion_rate": conversion_rate,
+                    "avg_stay_time": avg_stay_time,
+                    "fv_retention_rate": fv_retention_rate,
+                    "final_cta_rate": final_cta_rate
+                }
+                analysis_result = ai_analysis.analyze_overall_performance(kpi_data, comp_kpis if enable_comparison else None)
+                st.markdown(analysis_result)
 
             if st.button("AI分析を閉じる", key="summary_ai_close"):
                 st.session_state.summary_ai_open = False
@@ -1801,28 +1784,8 @@ elif selected_analysis == "ページ分析":
     if st.session_state.page_analysis_ai_open:
         with st.container():
             with st.spinner("AIがページデータを分析中..."):
-                bottleneck_page = page_stats.sort_values(by=['離脱率', '平均滞在時間(秒)'], ascending=[False, True]).iloc[0]
-                
-                st.markdown("#### 1. 現状の評価")
-                st.info(f"""
-                ポジショニングマップと各指標から、**ページ{int(bottleneck_page['ページ番号'])}** が最も重要な改善候補（ボトルネック）であると判断されます。
-                - **離脱率**: {bottleneck_page['離脱率']:.1f}% と高く、多くのユーザーがここでLPから離れています。
-                - **平均滞在時間**: {bottleneck_page['平均滞在時間(秒)']:.1f}秒 と短く、コンテンツが十分に読まれていない可能性があります。
-                - **逆行パターン**: 逆行が多いページは、ユーザーが情報を探して迷っている兆候です。遷移元と遷移先のコンテンツの流れを見直す必要があります。
-                """)
-
-                st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f"""
-                **ページ{int(bottleneck_page['ページ番号'])}** の改善が急務です。滞在時間が短く離脱率が高いことから、以下の可能性が考えられます。
-                - **コンテンツのミスマッチ**: 前のページからの期待と、このページの内容が合っていない。
-                - **魅力の欠如**: ユーザーの興味を引く情報やビジュアルが不足している。
-                - **次のアクションが不明確**: ユーザーが次に何をすべきか分からず離脱している。
-                
-                **具体的な改善アクション案:**
-                1. **コンテンツの見直し**: ページ{int(bottleneck_page['ページ番号'])}のキャッチコピーや画像が、ユーザーのニーズに合っているか再確認する。
-                2. **CTAの設置**: 次のページへ誘導する明確なCTA（コールトゥアクション）ボタンを設置、または既存のものをより目立たせる。
-                3. **A/Bテストの実施**: 異なる訴求内容のコンテンツやデザインでA/Bテストを行い、どちらが効果的か検証する。
-                """)
+                analysis_result = ai_analysis.analyze_page_bottlenecks(page_stats)
+                st.markdown(analysis_result)
 
             if st.button("AI分析を閉じる", key="page_analysis_ai_close"):
                 st.session_state.page_analysis_ai_open = False
