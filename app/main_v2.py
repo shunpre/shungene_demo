@@ -2627,7 +2627,7 @@ elif selected_analysis == "A/Bテスト分析":
                 st.info(f"今回の勝者「{winner['バリアント']}」の要素をベースに、さらに改善できる点をテストしましょう。例えば、CTAボタンの文言を変える、フォームの項目を減らす、などの新しい仮説でテストを計画するのが良いでしょう。")
 
 # タブ5: インタラクション分析
-elif selected_analysis == "LPOの基礎知識":
+elif selected_analysis == "インタラクション分析":
 
     st.markdown('<div class="sub-header">インタラクション分析</div>', unsafe_allow_html=True)
 
