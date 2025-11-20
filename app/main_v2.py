@@ -187,14 +187,16 @@ st.markdown("""
         color: white !important;
         border: 1px solid #003080 !important;
     }
-    /* データ生成ボタンだけ赤色にする */
-    .data-generation-button-container .stButton>button[kind="primary"] {
+    /* データ生成ボタンだけ赤色にする（優先度を最大限に上げる） */
+    div[data-testid="stSidebarUserContent"] .data-generation-button-container .stButton>button[kind="primary"],
+    div[data-testid="stSidebarUserContent"] .data-generation-button-container button[kind="primary"] {
         background-color: #ff4b4b !important;
         color: white !important;
         border: 1px solid #ff4b4b !important;
         font-weight: normal !important;
     }
-    .data-generation-button-container .stButton>button[kind="primary"]:hover {
+    div[data-testid="stSidebarUserContent"] .data-generation-button-container .stButton>button[kind="primary"]:hover,
+    div[data-testid="stSidebarUserContent"] .data-generation-button-container button[kind="primary"]:hover {
         background-color: #ff6b6b !important;
         color: white !important;
         border: 1px solid #ff6b6b !important;
@@ -413,30 +415,60 @@ global_scenario = st.sidebar.selectbox(
     key="global_scenario_selector"
 )
 
-# データ生成ボタン用のコンテナ（CSSでターゲットするため）
-with st.sidebar:
-    # カスタムクラスを持つdivで囲む
-    st.markdown('<div class="data-generation-button-container">', unsafe_allow_html=True)
-    if st.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
-        with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
-            # 新しいダミーデータ生成関数を呼び出す
-            # シナリオ名を直接渡し、日数は30日、ページ数は16ページで固定 (LPの実際のページ数に合わせる)
-            num_days_gen = 30
-            num_pages_gen = 16 # 瞬フォームのページ数に合わせる
-            st.session_state.generated_data = generate_dummy_data(
-                scenario=global_scenario,
-                num_days=num_days_gen,
-                num_pages=num_pages_gen,
-                target_cvr=target_cvr_input / 100 # %を小数に変換して渡す
-            )
-            st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
-            st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
-        # ページリダイレクトを削除し、現在のページを維持する
-        # query_params_proxy["page"] = "全体サマリー" の処理を削除
-        pass
+# データ生成ボタン（赤色にするためJavaScriptでスタイル適用）
+if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
+    with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
+        # 新しいダミーデータ生成関数を呼び出す
+        # シナリオ名を直接渡し、日数は30日、ページ数は16ページで固定 (LPの実際のページ数に合わせる)
+        num_days_gen = 30
+        num_pages_gen = 16 # 瞬フォームのページ数に合わせる
+        st.session_state.generated_data = generate_dummy_data(
+            scenario=global_scenario,
+            num_days=num_days_gen,
+            num_pages=num_pages_gen,
+            target_cvr=target_cvr_input / 100 # %を小数に変換して渡す
+        )
+        st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
+        st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
+    # ページリダイレクトを削除し、現在のページを維持する
+    # query_params_proxy["page"] = "全体サマリー" の処理を削除
+    pass
 
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.rerun()
+
+# JavaScriptでデータ生成ボタンを赤色にする
+st.sidebar.markdown("""
+<script>
+(function() {
+    // ページ読み込み後に実行
+    setTimeout(function() {
+        // サイドバー内の全てのprimaryボタンを取得
+        const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+        if (sidebar) {
+            const buttons = sidebar.querySelectorAll('button[kind="primary"]');
+            buttons.forEach(function(button) {
+                // ボタンのテキストが「ダミーデータを生成」の場合のみ赤色にする
+                if (button.textContent.includes('ダミーデータを生成')) {
+                    button.style.backgroundColor = '#ff4b4b';
+                    button.style.borderColor = '#ff4b4b';
+                    button.style.fontWeight = 'normal';
+                    
+                    // ホバー時のイベントも追加
+                    button.addEventListener('mouseenter', function() {
+                        this.style.backgroundColor = '#ff6b6b';
+                        this.style.borderColor = '#ff6b6b';
+                    });
+                    button.addEventListener('mouseleave', function() {
+                        this.style.backgroundColor = '#ff4b4b';
+                        this.style.borderColor = '#ff4b4b';
+                    });
+                }
+            });
+        }
+    }, 100);
+})();
+</script>
+""", unsafe_allow_html=True)
 
 
 st.sidebar.markdown("---")
