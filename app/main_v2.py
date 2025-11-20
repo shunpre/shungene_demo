@@ -500,8 +500,8 @@ for group_name, items in menu_groups.items():
         button_key = f"nav_button_{item}"
 
         # 選択中のページはテキストで強調、ボタン自体は全てsecondary（無色）
-        # 選択中の場合は "▶ " を付与して赤色で強調
-        label = f":red[▶ {item}]" if is_active else item
+        # 選択中の場合は "▶ " を付与して紺色（青）で強調
+        label = f":blue[▶ {item}]" if is_active else item
         button_type = "secondary"
         
         if st.sidebar.button(label, key=button_key, use_container_width=True, type=button_type):
