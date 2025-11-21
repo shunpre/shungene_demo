@@ -397,7 +397,7 @@ model_options = {
 selected_model_label = st.sidebar.selectbox(
     "使用するAIモデル",
     list(model_options.keys()),
-    index=1, # Default to 2.5 Pro
+    index=0, # Default to 3.0 Pro
     key="model_selector"
 )
 st.session_state.selected_gemini_model = model_options[selected_model_label]

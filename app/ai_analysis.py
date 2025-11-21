@@ -56,6 +56,7 @@ def analyze_overall_performance(kpi_data, comparison_data=None):
     
     Output Format:
     Markdown text with clear headings and bullet points. Keep it concise (under 200 words).
+    **IMPORTANT: Output must be in Japanese.**
     """
     return _safe_generate(prompt)
 
@@ -79,6 +80,7 @@ def analyze_page_bottlenecks(page_stats_df):
     
     Output Format:
     Markdown text. Focus on the critical bottleneck.
+    **IMPORTANT: Output must be in Japanese.**
     """
     return _safe_generate(prompt)
 
@@ -101,6 +103,7 @@ def analyze_device_performance(device_stats_df):
     
     Output Format:
     Markdown text.
+    **IMPORTANT: Output must be in Japanese.**
     """
     return _safe_generate(prompt)
 
@@ -127,6 +130,7 @@ def analyze_demographics(age_df, gender_df, region_df):
     
     Output Format:
     Markdown text.
+    **IMPORTANT: Output must be in Japanese.**
     """
     return _safe_generate(prompt)
 
@@ -157,6 +161,7 @@ def generate_improvement_proposal(kpi_data, page_stats_df, device_stats_df, targ
     
     Output Format:
     Structured Markdown with clear sections. Be specific and actionable.
+    **IMPORTANT: Output must be in Japanese.**
     """
     return _safe_generate(prompt)
 
@@ -173,6 +178,6 @@ def answer_user_question(context_data, question):
     User Question:
     {question}
     
-    Answer:
+    Answer (in Japanese):
     """
     return _safe_generate(prompt)
