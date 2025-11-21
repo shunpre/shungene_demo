@@ -11,7 +11,7 @@ from scipy.stats import gamma, lognorm, norm
 
 # --- Scenario Configurations ---
 SCENARIO_CONFIGS = {
-    'Leaky Bucket': { # 穴のあいたバケツ: 流入は多いが、FVで大量離脱。滞在時間も短い。
+    '穴のあいたバケツ': { # Leaky Bucket
         'description': '流入多・離脱多（穴のあいたバケツ）',
         'num_sessions_per_day_range': (800, 1200),
         'fv_exit_rate': 0.70, # FV離脱率 70%
@@ -26,7 +26,7 @@ SCENARIO_CONFIGS = {
         'device_weights': [0.9, 0.1], # ほぼスマホ
         'num_pages_dist': lambda: random.randint(8, 12), # ページ数変動
     },
-    'Niche Fanbase': { # コアファン: 流入は少ないが、精読率が高くCVRも高い。
+    'コアファン': { # Niche Fanbase
         'description': '流入少・高CVR（コアファン）',
         'num_sessions_per_day_range': (50, 100),
         'fv_exit_rate': 0.15, # FV離脱率 15%
@@ -41,7 +41,7 @@ SCENARIO_CONFIGS = {
         'device_weights': [0.6, 0.3, 0.1],
         'num_pages_dist': lambda: random.randint(15, 20), # 情報量多い
     },
-    'Mobile Struggle': { # スマホ苦手: PCは良いがスマホで離脱・CVR減。
+    'スマホ苦手': { # Mobile Struggle
         'description': 'スマホだけ不調（レスポンシブ課題）',
         'num_sessions_per_day_range': (400, 600),
         'fv_exit_rate': 0.40,
@@ -62,7 +62,7 @@ SCENARIO_CONFIGS = {
             'tablet': {'cvr': 1.0, 'stay': 1.0, 'load': 1.0}
         }
     },
-    'Standard': { # 普通: バランス型
+    '標準': { # Standard
         'description': '標準的なパフォーマンス',
         'num_sessions_per_day_range': (300, 500),
         'fv_exit_rate': 0.35,
@@ -109,12 +109,12 @@ DEFAULT_CONFIG = {
     'info_jump_backflow_bonus': 0.6,
 }
 
-def generate_dummy_data(scenario: str = 'Standard', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04):
+def generate_dummy_data(scenario: str = '標準', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04):
     """
     リアルなスワイプLPイベントデータを生成
     """
     # シナリオ設定のロードとマージ
-    scenario_config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['Standard'])
+    scenario_config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['標準'])
     config = DEFAULT_CONFIG.copy()
     config.update(scenario_config)
 
@@ -282,6 +282,20 @@ def generate_dummy_data(scenario: str = 'Standard', num_days: int = 30, num_page
                     "direction": direction,
                     "ab_variant": session_variant,
                     "ab_test_target": ab_test_target,
+                    # Initialize columns to avoid KeyError
+                    "cv_type": None,
+                    "cv_value": None,
+                    "value": None,
+                    "form_page_number": None,
+                    "form_duration_ms": None,
+                    "form_direction": None,
+                    "click_x_rel": None,
+                    "click_y_rel": None,
+                    "elem_tag": None,
+                    "elem_id": None,
+                    "elem_classes": None,
+                    "link_url": None,
+                    "video_src": None,
                 }
                 current_page_events.append(event_data)
                 
@@ -308,12 +322,24 @@ def generate_dummy_data(scenario: str = 'Standard', num_days: int = 30, num_page
                 cv_event = current_page_events[-1].copy()
                 cv_event['event_name'] = 'conversion'
                 cv_event['event_timestamp'] += timedelta(milliseconds=1000)
+                cv_event['cv_type'] = random.choice(["primary", "micro"])
                 cv_event['cv_value'] = random.randint(1000, 10000)
+                cv_event['value'] = cv_event['cv_value']
                 current_page_events.append(cv_event)
             
             data.extend(current_page_events)
 
+    # DataFrameに変換
     df = pd.DataFrame(data)
+    
+    # --- 意図的なアラートデータを注入 ---
+    # 期間内にランダムな3日を「異常日」として設定
+    if num_days >= 10 and not df.empty: # Ensure df is not empty before accessing columns
+        if scenario == 'スマホ苦手': # Mobile Struggle
+            # スマホ苦手シナリオでは、スマホのCVRをさらに下げる日を作るなど
+            pass
+
+    # 日付でソート
     if not df.empty:
         df = df.sort_values("event_timestamp").reset_index(drop=True)
         # total_duration_ms 補完
@@ -322,6 +348,6 @@ def generate_dummy_data(scenario: str = 'Standard', num_days: int = 30, num_page
     return df
 
 if __name__ == "__main__":
-    df = generate_dummy_data(scenario='Leaky Bucket', num_days=3)
+    df = generate_dummy_data(scenario='穴のあいたバケツ', num_days=3)
     print(f"Generated {len(df)} events.")
     print(df.head().to_markdown())

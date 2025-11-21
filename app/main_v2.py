@@ -420,26 +420,15 @@ target_cvr_input = st.sidebar.number_input(
     format="%.2f"
 )
 
-global_scenario = st.sidebar.selectbox(
-    "データシナリオを選択",
-    scenario_options,
-    index=default_scenario_index,
-    key="global_scenario_selector"
-)
-
-# データ生成ボタン（赤色にするためJavaScriptでスタイル適用）
 # シナリオ選択
-scenario_options = ["Standard", "Leaky Bucket", "Niche Fanbase", "Mobile Struggle"]
-selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=0)
+scenario_options = ["穴のあいたバケツ", "コアファン", "スマホ苦手", "標準"]
+selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=0, key="scenario_selector_main")
 
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{selected_scenario}」シナリオのデータを生成中..."):
         # 新しいダミーデータ生成関数を呼び出す
         # 日数は30日で固定
         num_days_gen = 30
-        # ページ数はシナリオ内でランダム生成されるため、ここでは渡さない（またはデフォルト値を渡す）
-        # generate_dummy_data側でnum_pages引数はデフォルト値を持つが、シナリオ設定が優先される設計にしたため、
-        # ここでは明示的に渡さなくても良いが、互換性のために一応渡す
         
         st.session_state.generated_data = generate_dummy_data(
             scenario=selected_scenario,
