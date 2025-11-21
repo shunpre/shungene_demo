@@ -28,6 +28,10 @@ from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
 import app.ai_analysis as ai_analysis
 
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
+
 # --- Streamlitバージョン互換性のためのプロキシクラス ---
 class QueryParamsProxy:
     """
@@ -100,6 +104,52 @@ st.markdown(hide_decoration_bar_style, unsafe_allow_html=True)
 
 # ブラウザがスクロールする先の「基点」を設置
 st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
+
+# --- Authentication ---
+config_path = os.path.join(project_root, 'config.yaml')
+with open(config_path) as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days'],
+    config['preauthorized']
+)
+
+# Login Widget
+authenticator.login(location='main')
+
+authentication_status = st.session_state.get('authentication_status')
+name = st.session_state.get('name')
+username = st.session_state.get('username')
+
+if authentication_status is False:
+    st.error('Username/password is incorrect')
+elif authentication_status is None:
+    st.warning('Please enter your username and password')
+
+# Registration Widget (Optional, in expander)
+if not authentication_status:
+    with st.expander("新規登録はこちら (Register)"):
+        try:
+            # register_user returns (email, username, name) if successful, else (None, None, None)
+            email_reg, username_reg, name_reg = authenticator.register_user(pre_authorized=None)
+            if email_reg:
+                st.success('User registered successfully')
+                # Save config file with new user
+                with open(config_path, 'w') as file:
+                    yaml.dump(config, file, default_flow_style=False)
+        except Exception as e:
+            st.error(e)
+
+if not authentication_status:
+    st.stop()
+
+# Logout button in sidebar
+authenticator.logout(location='sidebar')
+st.sidebar.write(f'Welcome *{name}*')
 
 # --- ページ遷移関数 ---
 def navigate_to(page_name):
