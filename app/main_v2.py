@@ -28,6 +28,10 @@ from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
 import app.ai_analysis as ai_analysis
 
+import yaml
+from yaml.loader import SafeLoader
+import streamlit_authenticator as stauth
+
 # --- Streamlitバージョン互換性のためのプロキシクラス ---
 class QueryParamsProxy:
     """
@@ -100,6 +104,43 @@ st.markdown(hide_decoration_bar_style, unsafe_allow_html=True)
 
 # ブラウザがスクロールする先の「基点」を設置
 st.markdown('<a id="top-anchor"></a>', unsafe_allow_html=True)
+
+# --- Authentication ---
+config_path = os.path.join(project_root, 'config.yaml')
+with open(config_path) as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+# Fix: Do not pass preauthorized to Authenticate constructor
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
+)
+
+# Login Widget
+# fields引数でラベルを日本語化
+authenticator.login(
+    location='main',
+    fields={'Form name': 'ログイン', 'Username': 'ユーザー名', 'Password': 'パスワード', 'Login': 'ログイン'}
+)
+
+authentication_status = st.session_state.get('authentication_status')
+name = st.session_state.get('name')
+username = st.session_state.get('username')
+
+if authentication_status is False:
+    st.error('ユーザー名またはパスワードが間違っています')
+elif authentication_status is None:
+    st.warning('ユーザー名とパスワードを入力してください')
+
+if not authentication_status:
+    st.stop()
+
+# Logout button in sidebar
+authenticator.logout(location='sidebar', key='logout_button')
+# ボタンのラベル変更は標準機能では難しいため、メッセージのみ日本語化
+st.sidebar.write(f'ようこそ *{name}* さん')
 
 # --- ページ遷移関数 ---
 def navigate_to(page_name):

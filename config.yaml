@@ -1,0 +1,14 @@
+credentials:
+  usernames:
+    "1121":
+      email: user@example.com
+      failed_login_attempts: 0
+      logged_in: False
+      name: ユーザー
+      password: $2b$12$2yIaI.4/0ak61xkQ1yyL.eLVjZbY2BtxlUXoXKvtfqRGNOE8RZuaS
+cookie:
+  expiry_days: 30
+  key: random_signature_key
+  name: random_cookie_name
+preauthorized:
+  emails: []
