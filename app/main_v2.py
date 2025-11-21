@@ -4822,6 +4822,7 @@ elif selected_analysis == "専門用語解説":
 # タブ14: FAQ
 elif selected_analysis == "FAQ":
     st.markdown('<div class="sub-header">「瞬ジェネ AIアナリスト」に関するFAQ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer">瞬ジェネ AIアナライザー - Powered by Gemini 3.0Pro</div>', unsafe_allow_html=True)
 
     st.markdown("#### 【基本的な使い方・機能について】")
     with st.expander("Q1. このアプリで何ができますか？", expanded=False):
@@ -5275,4 +5276,4 @@ elif selected_analysis == "瞬フォーム分析":
 
 # フッター
 st.markdown("---")
-st.markdown("**瞬ジェネ AIアナライザー** - Powered by Streamlit & Gemini 2.5 Pro")
+st.markdown("**瞬ジェネ AIアナライザー** - Powered by Gemini 3.0Pro")
