@@ -518,7 +518,7 @@ else:
 # グルーピングされたメニュー項目
 menu_groups = {
     "基本分析": ["全体サマリー", "リアルタイムビュー", "時系列分析", "デモグラフィック情報", "アラート"],
-    "LP最適化分析": ["ページ分析", "A/Bテスト分析", "LPO要因分析（詳細版）"],
+    "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
     "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
     "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
 }
@@ -2165,31 +2165,10 @@ elif selected_analysis == "広告分析":
     if st.session_state.ad_analysis_ai_open:
         with st.container():
             with st.spinner("AIがセグメントデータを分析中..."):
-                if not segment_stats.empty and 'CVR' in segment_stats.columns:
-                    best_segment_row = segment_stats.loc[segment_stats['CVR'].idxmax()]
-                    worst_segment_row = segment_stats.loc[segment_stats['CVR'].idxmin()]
-                    best_segment = {'name': best_segment_row[segment_name], 'cvr': best_segment_row['CVR']}
-                    worst_segment = {'name': worst_segment_row[segment_name], 'cvr': worst_segment_row['CVR']}
-                else:
-                    best_segment, worst_segment = (None, None)
-                
-                st.markdown("#### 1. 現状の評価")
-                st.info(f"""
-                {analysis_target}では、パフォーマンスに顕著な差が見られます。
-                - **最もパフォーマンスが高いセグメント**: **{best_segment['name']}** (CVR: {best_segment['cvr']:.2f}%)
-                - **最もパフォーマンスが低いセグメント**: **{worst_segment['name']}** (CVR: {worst_segment['cvr']:.2f}%) # type: ignore
-                
-                特に **{worst_segment['name']}** のセグメントは、他のセグメントと比較してCVRが低く、改善の機会が大きい領域です。 # type: ignore
-                """)
-
-                st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f"""
-                **{worst_segment['name']}** セグメントのパフォーマンスが低い原因を特定し、対策を講じるべきです。 # type: ignore
-                - **{analysis_target}が「デバイス別」の場合**: {worst_segment['name']}での表示崩れや操作性の問題がないか確認が必要です。レスポンシブデザインの見直しや、読み込み速度の最適化を検討してください。
-                - **{analysis_target}が「チャネル別」の場合**: {worst_segment['name']}からの流入ユーザーとLPの訴求内容が一致していない可能性があります。広告のターゲティングやクリエイティブ、またはLPのファーストビューを見直してください。
-                
-                逆に、**{best_segment['name']}** は非常に効果的なセグメントです。このセグメントへの広告予算の増額や、類似ユーザーへのアプローチ拡大を検討する価値があります。
-                """)
+                # AI分析を実行
+                ai_response = ai_analysis.analyze_ad_performance_expert(segment_stats, analysis_target)
+                st.markdown(ai_response)
+            
             if st.button("AI分析を閉じる", key="ad_analysis_ai_close"):
                 st.session_state.ad_analysis_ai_open = False
 
@@ -2618,29 +2597,9 @@ elif selected_analysis == "A/Bテスト分析":
         with st.container():
             with st.spinner("AIがA/Bテスト結果を分析中..."):
                 if not ab_stats.empty and len(ab_stats) >= 2:
-                    winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
-                    baseline = ab_stats.iloc[0]
-                    
-                    st.markdown("#### 1. テスト結果の評価")
-                    st.info(f"""
-                    今回のA/Bテストの結果、**「{winner['バリアント']}」** が最も高いパフォーマンスを示しました。
-                    - **勝者**: {winner['バリアント']} (CVR: {winner['コンバージョン率']:.2f}%)
-                    - **ベースライン**: {baseline['バリアント']} (CVR: {baseline['コンバージョン率']:.2f}%)
-                    - **CVR差分**: {winner['CVR差分(pt)']:.2f}pt
-                    - **統計的有意差**: {winner['有意差']} (p値: {winner['p値']:.4f})
-                    
-                    p値が0.05未満の場合、この結果が偶然である可能性は低く、信頼性が高いと判断できます。
-                    """)
-
-                    st.markdown("#### 2. 今後のアクション提案")
-                    st.warning(f"""
-                    **「{winner['バリアント']}」** のパターンを本採用することを強く推奨します。
-                    
-                    **次のステップ:**
-                    1. **勝者パターンの実装**: エンジニアリングチームと連携し、勝者パターン「{winner['バリアント']}」を全てのユーザーに適用してください。
-                    2. **効果測定**: 実装後、再度パフォーマンスをモニタリングし、期待通りの効果が出ているか確認します。
-                    3. **次のテスト計画**: 今回のテストで得られた知見（例：「{winner['バリアント']}」のどの要素が良かったか）を基に、さらなる改善のための新しいA/Bテストを計画しましょう。
-                    """)
+                    # AI分析を実行
+                    ai_response = ai_analysis.analyze_ab_test_expert(ab_stats)
+                    st.markdown(ai_response)
                 else:
                     st.warning("比較するバリアントが2つ未満のため、詳細な分析は実行できません。")
             if st.button("AI分析を閉じる", key="ab_test_ai_close"):
@@ -2685,124 +2644,6 @@ elif selected_analysis == "A/Bテスト分析":
             if not ab_stats.empty:
                 winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
                 st.info(f"今回の勝者「{winner['バリアント']}」の要素をベースに、さらに改善できる点をテストしましょう。例えば、CTAボタンの文言を変える、フォームの項目を減らす、などの新しい仮説でテストを計画するのが良いでしょう。")
-
-# タブ: LPO要因分析（詳細版）
-elif selected_analysis == "LPO要因分析（詳細版）":
-    st.markdown('<div class="sub-header">LPO要因分析（詳細版）</div>', unsafe_allow_html=True)
-    st.markdown('<div class="graph-description">ヒアリングシート情報とLPのコンテンツ、そして実際のパフォーマンスデータを統合し、AIが包括的な改善提案を行います。</div>', unsafe_allow_html=True)
-
-    # --- フィルター設定 (簡易版) ---
-    st.markdown('<div class="sub-header">分析対象設定</div>', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        # LP選択
-        lp_options = sorted(df['page_location'].dropna().unique().tolist())
-        selected_lp = st.selectbox(
-            "分析対象LP", 
-            lp_options, 
-            index=0 if lp_options else None,
-            key="lpo_analysis_lp",
-            disabled=not lp_options
-        )
-    with col2:
-        # 期間選択
-        period_options = ["過去30日間", "全期間"]
-        selected_period = st.selectbox("データ期間", period_options, index=0, key="lpo_analysis_period")
-
-    # LP形式選択 (New)
-    lp_format_options = ["縦長LP (一般的)", "スワイプ型LP", "記事LP", "チャットボット型", "その他"]
-    selected_lp_format = st.radio("LP形式", lp_format_options, index=0, horizontal=True, key="lpo_lp_format")
-
-    # データフィルタリング
-    if selected_period == "過去30日間":
-        start_date = df['event_date'].max() - timedelta(days=30)
-        filtered_df = df[(df['event_date'] >= start_date) & (df['page_location'] == selected_lp)]
-    else:
-        filtered_df = df[df['page_location'] == selected_lp]
-
-    if filtered_df.empty:
-        st.error("選択されたLPのデータがありません。")
-        st.stop()
-
-    # --- 入力エリア ---
-    st.markdown("---")
-    st.markdown("#### 1. ヒアリングシート / 商品情報")
-    st.info("クライアントからのヒアリング内容、商品の特徴、ターゲット層、競合優位性などを入力してください。")
-    hearing_sheet_text = st.text_area(
-        "ヒアリングシート内容",
-        height=200,
-        placeholder="例：\nターゲット：30代〜40代の主婦\n商品：無添加のオーガニックスキンケア\n悩み：肌の乾燥、敏感肌\n競合優位性：国産オーガニック、コスパが良い\n...",
-        key="lpo_hearing_text"
-    )
-
-    st.markdown("#### 2. LPテキストコンテンツ")
-    st.info("LP内の主要なテキストコンテンツ（キャッチコピー、ボディコピー、権威付けなど）を入力してください。")
-    lp_text_content = st.text_area(
-        "LPテキスト内容",
-        height=200,
-        placeholder="例：\n【FV】\nもう乾燥に悩まない。自然の力で潤う肌へ。\n初回限定980円\n\n【悩み共感】\n夕方になると肌がカサカサ...\n化粧ノリが悪い...\nそんなあなたへ。\n...",
-        key="lpo_content_text"
-    )
-
-    # --- データ集計 (KPI & Page Stats) ---
-    # KPI計算
-    sessions = filtered_df['session_id'].nunique()
-    cv = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
-    cvr = (cv / sessions * 100) if sessions > 0 else 0
-    
-    # 直帰率 (1ページのみで離脱したセッション / 全セッション)
-    bounced_sessions = filtered_df.groupby('session_id').filter(lambda x: x['max_page_reached'].max() == 1)['session_id'].nunique()
-    bounce_rate = (bounced_sessions / sessions * 100) if sessions > 0 else 0
-
-    kpi_data = {
-        "sessions": sessions,
-        "cvr": cvr,
-        "bounce_rate": bounce_rate,
-        "avg_stay_time": filtered_df['stay_ms'].mean() / 1000
-    }
-
-    # ページ別統計 (簡易版)
-    page_stats = filtered_df.groupby('page_num_dom').agg({
-        'session_id': 'nunique',
-        'stay_ms': 'mean',
-        'scroll_pct': 'mean' # 逆行率として代用または別途計算
-    }).reset_index()
-    page_stats.columns = ['ページ番号', 'ビュー数', '平均滞在時間(ms)', '平均スクロール率']
-    page_stats['平均滞在時間(秒)'] = page_stats['平均滞在時間(ms)'] / 1000
-    
-    # 離脱率計算
-    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 1
-    page_exit = []
-    for page_num in range(1, actual_page_count + 1):
-        reached = filtered_df[filtered_df['max_page_reached'] >= page_num]['session_id'].nunique()
-        exited = filtered_df[filtered_df['max_page_reached'] == page_num]['session_id'].nunique()
-        exit_rate = (exited / reached * 100) if reached > 0 else 0
-        page_exit.append({'ページ番号': page_num, '離脱率': exit_rate})
-    
-    page_exit_df = pd.DataFrame(page_exit)
-    page_stats = page_stats.merge(page_exit_df, on='ページ番号', how='left')
-
-    # --- 分析実行 ---
-    st.markdown("---")
-    st.markdown("#### 3. 分析実行")
-    
-    if st.button("LPO要因分析を実行（詳細版）", type="primary", use_container_width=True):
-        if not hearing_sheet_text or not lp_text_content:
-            st.warning("ヒアリングシート内容とLPテキスト内容は必須です。")
-        else:
-            with st.spinner("Gemini 3.0 Pro (Preview) が詳細な分析レポートを生成しています... これには数分かかる場合があります。"):
-                try:
-                    analysis_result = ai_analysis.analyze_lpo_factors(
-                        kpi_data=kpi_data,
-                        page_stats_df=page_stats,
-                        hearing_sheet_text=hearing_sheet_text,
-                        lp_text_content=lp_text_content,
-                        lp_format=selected_lp_format
-                    )
-                    st.markdown(analysis_result)
-                except Exception as e:
-                    st.error(f"分析中にエラーが発生しました: {str(e)}")
 
 # タブ5: インタラクション分析
 elif selected_analysis == "インタラクション分析":
@@ -3089,27 +2930,9 @@ elif selected_analysis == "インタラクション分析":
     if st.session_state.interaction_ai_open:
         with st.container():
             with st.spinner("AIがインタラクションデータを分析中..."):
-                # クリック率が最も高い要素を特定
-                if not contribution_df.empty:
-                    best_lift_element = contribution_df.loc[contribution_df['CVRリフト率 (%)'].idxmax()]
-                else:
-                    best_lift_element = pd.Series({'インタラクション要素': 'N/A', 'CVRリフト率 (%)': 0})
-                
-                st.markdown("#### 1. 現状の評価")
-                st.info(f"""
-                インタラクション要素の中で、**「{best_lift_element['インタラクション要素']}」** がCVRリフト率 **{best_lift_element['CVRリフト率 (%)']:.1f}%** と最も高く、コンバージョンに最も貢献している行動と考えられます。
-                
-                この行動を取ったユーザーは、取らなかったユーザーに比べてCVRが大幅に高いことを意味します。
-                """)
-
-                st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f"""
-                **CV貢献度の高い行動を促進する:**
-                「{best_lift_element['インタラクション要素']}」という行動を、より多くのユーザーに取ってもらうための施策が有効です。例えば、このボタンをより目立たせる、配置を変える、などの改善が考えられます。
-                
-                **CV貢献度の低い行動の分析:**
-                CVRリフト率が低い、あるいはマイナスになっている行動は、ユーザーを混乱させているか、CVから遠ざけている可能性があります。その要素の必要性自体を見直すか、役割を明確にする改善が必要です。
-                """)
+                # AI分析を実行
+                ai_response = ai_analysis.analyze_interaction_expert(contribution_df)
+                st.markdown(ai_response)
             if st.button("AI分析を閉じる", key="interaction_ai_close"):
                 st.session_state.interaction_ai_open = False
 
@@ -3422,42 +3245,30 @@ elif selected_analysis == "動画・スクロール分析":
 
     if st.session_state.video_scroll_ai_open:
         with st.container():
-            # AI分析で必要な変数を事前に計算
-            video_df = filtered_df[filtered_df['video_src'].notna()]
-            video_cvr = 0
-            non_video_cvr = 0
-            if len(video_df) > 0:
-                video_sessions = video_df['session_id'].nunique()
-                video_cv = video_df[video_df['cv_type'].notna()]['session_id'].nunique()
-                video_cvr = safe_rate(video_cv, video_sessions) * 100
-                non_video_sessions = total_sessions - video_sessions
-                non_video_cv = filtered_df[(filtered_df['video_src'].isna()) & (filtered_df['cv_type'].notna())]['session_id'].nunique()
-                non_video_cvr = safe_rate(non_video_cv, non_video_sessions) * 100
-
             with st.spinner("AIがエンゲージメントデータを分析中..."):
-                st.markdown("#### 1. 現状の評価")
-                if len(video_df) > 0:
-                    st.info(f"""
-                    **動画視聴とコンバージョンの関係:**
-                    動画を視聴したユーザーのコンバージョン率は **{video_cvr:.2f}%** であり、視聴しなかったユーザーの **{non_video_cvr:.2f}%** と比較して高い傾向にあります。これは、動画コンテンツがユーザーの理解を深め、コンバージョンを促進する上で有効であることを示唆しています。
-                    """)
-                else:
-                    st.info("このLPには動画コンテンツのデータがありません。")
-
-                st.info("""
-                **スクロール行動とコンバージョンの関係:**
-                逆行率が高いページや、スクロール率が低いにもかかわらず離脱が多いページは、ユーザーがコンテンツに満足していないか、求めている情報を見つけられていない可能性があります。
-                """)
-
-                st.markdown("#### 2. 今後の考察と改善案")
-                st.warning("""
-                **動画コンテンツの活用:**
-                動画の視聴完了率や、どの部分で視聴を止めたかを分析することで、さらにコンテンツを改善できます。動画の冒頭で強いメッセージを伝え、視聴維持率を高める工夫が重要です。
+                # AI分析を実行
+                # video_dfなどはフィルタリング済みデータから再取得する必要があるが、
+                # ここでは簡略化のため、必要な統計情報を渡す形にする
+                video_stats = None
+                if len(filtered_df[filtered_df['video_src'].notna()]) > 0:
+                    video_df = filtered_df[filtered_df['video_src'].notna()]
+                    video_sessions = video_df['session_id'].nunique()
+                    video_cv = video_df[video_df['cv_type'].notna()]['session_id'].nunique()
+                    video_cvr = safe_rate(video_cv, video_sessions) * 100
+                    
+                    non_video_sessions = total_sessions - video_sessions
+                    non_video_cv = filtered_df[(filtered_df['video_src'].isna()) & (filtered_df['cv_type'].notna())]['session_id'].nunique()
+                    non_video_cvr = safe_rate(non_video_cv, non_video_sessions) * 100
+                    
+                    video_stats = {
+                        'video_cvr': video_cvr,
+                        'non_video_cvr': non_video_cvr,
+                        'video_sessions': video_sessions
+                    }
                 
-                **スクロール体験の改善:**
-                - **逆行率が高いページ**: なぜユーザーが戻る必要があるのかを分析します。情報が不足している場合は補足し、ナビゲーションが分かりにくい場合は改善します。
-                - **スクロール率が低いページ**: ページの冒頭（ファーストビュー）でユーザーの興味を引き、続きを読む動機付けを与える必要があります。魅力的なキャッチコピーや画像の使用が効果的です。
-                """)
+                ai_response = ai_analysis.analyze_video_scroll_expert(video_stats, scroll_stats)
+                st.markdown(ai_response)
+
             if st.button("AI分析を閉じる", key="video_scroll_ai_close"):
                 st.session_state.video_scroll_ai_open = False
 
@@ -3777,28 +3588,10 @@ elif selected_analysis == "時系列分析":
     if st.session_state.timeseries_ai_open:
         with st.container():
             with st.spinner("AIが時系列データを分析中..."):
-                if not heatmap_stats.empty:
-                    # ゴールデンタイムを特定
-                    golden_time = heatmap_stats.loc[heatmap_stats['コンバージョン率'].idxmax()]
-                else:
-                    golden_time = None
-                
-                st.markdown("#### 1. 現状の評価")
-                st.info(f"""
-                曜日・時間帯別のヒートマップから、このLPの「ゴールデンタイム」が明らかになりました。
-                - **最もCVRが高い時間帯**: **{dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台** (CVR: {golden_time['コンバージョン率']:.2f}%)
-                
-                この時間帯は、ターゲットユーザーが最もアクティブで、コンバージョンに至りやすいと考えられます。
-                """)
-
-                st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f"""
-                **ゴールデンタイムの活用:**
-                - **広告配信の強化**: {dow_map_jp[golden_time['dow_name']]}曜日の{int(golden_time['hour'])}時台を中心に、広告の表示を強化したり、入札単価を引き上げることで、効率的にコンバージョンを獲得できる可能性があります。
-                - **プロモーションの実施**: メールマガジンの配信やSNSでの投稿をこの時間帯に合わせることで、開封率やクリック率の向上が期待できます。
-                
-                逆に、CVRが低い時間帯は広告配信を抑制することで、広告費の無駄遣いを防ぎ、全体のCPAを改善することができます。
-                """)
+                # AI分析を実行
+                # heatmap_statsを渡す
+                ai_response = ai_analysis.analyze_timeseries_expert(heatmap_stats)
+                st.markdown(ai_response)
             if st.button("AI分析を閉じる", key="timeseries_ai_close"):
                 st.session_state.timeseries_ai_open = False
 
@@ -4270,23 +4063,10 @@ elif selected_analysis == "デモグラフィック情報":
     if st.session_state.demographic_ai_open:
         with st.container():
             with st.spinner("AIがデモグラフィックデータを分析中..."):
-                best_age_group = age_demo_df.loc[age_demo_df['CVR (%)'].idxmax()] if not age_demo_df.empty else {'年齢層': '不明', 'CVR (%)': 0}
-                
-                st.markdown("#### 1. 現状の評価")
-                st.info(f"""
-                ユーザー属性によって、LPに対する反応が異なることが分かります。
-                - **コアターゲット層**: **{best_age_group['年齢層']}** のCVRが{best_age_group['CVR (%)']:.1f}%と最も高く、このLPの主要なターゲット層であると考えられます。
-                - **性別差**: 性別によるCVRや滞在時間に大きな差がある場合、訴求するメッセージを男女で変えるなどの施策が有効かもしれません。
-                - **地域特性**: 特定の地域からのアクセスやCVRが高い場合、その地域に特化したキャンペーンや広告展開が効果的です。
-                """)
-
-                st.markdown("#### 2. 今後の考察と改善案")
-                st.warning(f"""
-                **ペルソナの深化とターゲティングの最適化:**
-                - **ペルソナの再定義**: 最もパフォーマンスの高い「{best_age_group['年齢層']}」のユーザーが、どのようなニーズや課題を持っているのかを深く分析し、LPのメッセージングをさらに最適化します。
-                - **広告ターゲティングの改善**: パフォーマンスの高い年齢層、性別、地域に広告予算を集中させることで、広告効率（CPA）の改善が期待できます。
-                - **コンテンツのパーソナライズ**: 将来的には、アクセスしてきたユーザーの属性に応じて、表示するコンテンツ（キャッチコピーや画像）を動的に変更することで、さらなるCVR向上が見込めます。
-                """)
+                # AI分析を実行
+                # age_demo_dfを渡す
+                ai_response = ai_analysis.analyze_demographics_expert(age_demo_df)
+                st.markdown(ai_response)
             if st.button("AI分析を閉じる", key="demographic_ai_close"):
                 st.session_state.demographic_ai_open = False
 
@@ -4682,181 +4462,40 @@ elif selected_analysis == "AIによる分析・考察":
             daily_target_cvr = target_cvr if target_cvr is not None else 0 # CVRは期間によらないのでそのまま
             daily_target_cpa = target_cpa if target_cpa is not None else 0 # CPAも期間によらないのでそのまま
 
-            # セクション1: 客観的かつ詳細な現状分析
-            st.markdown("---")
-            st.markdown("### 1. 客観的かつ詳細な現状分析")
-            
-            with st.expander("全体パフォーマンス評価", expanded=True):
-                st.markdown(f"""
-                **総合評価:**  
-                - **現状のCVR**: **{current_cvr or 0:.2f}%** （期間目標: {daily_target_cvr if daily_target_cvr > 0 else '未設定'}%）
-                - **現状のCV数**: **{current_cv or 0}** （期間目標: {daily_target_cv:.0f}件）
-                - **ファーストビュー(FV)残存率**: **{fv_retention_rate:.1f}%** が最初のページで離脱せずに次に進んでいます。
-                - **最終CTA到達率**: **{final_cta_rate:.1f}%** が最終ページまで到達しています。
-                
-                **AIによるLPコンテンツの評価:**
-                - **ヘッドライン**: 「{main_headline_escaped}」
-                - **訴求ポイント(AI推察)**: {inferred_appeal_point_escaped}
-                - **ターゲット顧客との関連性**: {f"入力されたターゲット顧客「{target_customer_escaped}」に対して、現在のヘッドラインと訴求ポイントは関連性が高いと考えられます。" if target_customer_escaped else "ターゲット顧客が未入力のため、詳細な関連性分析はスキップします。"}
-                """)
-            
-            # セクション2: 現状分析からの今後の考察
-            st.markdown("---")
-            st.markdown("### 2. 現状分析からの今後の考察")
-            
-            with st.expander("トレンド予測と潜在的リスク", expanded=True):
-                st.markdown(f"""
-                **考察:**
-                - **目標達成状況**: 現状のCV数({current_cv or 0}件)は、分析期間({analysis_days}日間)における日割り目標({daily_target_cv:.0f}件)に対して **{(current_cv or 0) - daily_target_cv:.0f}件** の差があります。
-                - **最大の課題**: FV残存率が **{fv_retention_rate:.1f}%** と低いことが、全体のCVRを押し下げる最大の要因と考えられます。多くのユーザーがLPの第一印象で興味を失い、離脱している可能性があります。
-                - **機会**: 最終CTA到達率が **{final_cta_rate:.1f}%** あるため、LPの中盤以降のコンテンツは比較的読まれているようです。FVを突破したユーザーを確実にCVに繋げることができれば、パフォーマンスは大きく改善する可能性があります。
-                """)
-            
-            # セクション3: 改善提案
-            st.markdown("---")
-            st.markdown("### 3. 具体的な改善提案")
-            
-            with st.expander("優先度高: 即実施すべき施策", expanded=True):
-                st.markdown(f"""
-                **1. ボトルネックページの改善（ページ{int(max_exit_page['ページ番号'])}）**
-                
-                - **実施内容**:
-                  - コンテンツの簡素化と視覚的な改善
-                  - 読みやすさの向上（フォントサイズ、行間、余白）
-                  - 画像・動画の最適化（読込時間短縮）
-                  - CTAボタンの追加または強調
-                
-                - **期待効果**: 離脱率{max_exit_page['離脱率']:.1f}% → {max_exit_page['離脱率'] * 0.7:.1f}% (30%減)
-                - **実施期間**: 1-2週間
-                - **必要リソース**: デザイナー1名、エンジニア1名
-                
-                **2. {worst_device['デバイス']}最適化**
-                
-                - **実施内容**:
-                  - レスポンシブデザインの見直し
-                  - タッチ操作の最適化（ボタンサイズ、間隔）
-                  - 読込速度の改善（画像圧縮、遅延読み込み）
-                  - フォーム入力の簡略化
-                
-                - **期待効果**: {worst_device['デバイス']}CVR {worst_device['コンバージョン率']:.2f}% → {worst_device['コンバージョン率'] * 1.3:.2f}% (30%向上)
-                - **実施期間**: 2-3週間
-                - **必要リソース**: UI/UXデザイナー1名、エンジニア1名
-                
-                **3. ファーストビューの最適化**
-                
-                - **実施内容**:
-                  - キャッチコピーの改善（ベネフィットを明確に）
-                  - ヒーロー画像の変更（インパクトと関連性）
-                  - CTAボタンの最適化（色、サイズ、テキスト）
-                  - 信頼性要素の追加（実績、レビュー、ロゴ）
-                
-                - **期待効果**: FV残存率{fv_retention_rate:.1f}% → {fv_retention_rate * 1.15:.1f}% (15%向上)
-                - **実施期間**: 1週間
-                - **必要リソース**: コピーライター1名、デザイナー1名
-                """)
-            
-            with st.expander("優先度中: A/Bテストで検証すべき施策"):
-                st.markdown("""
-                **1. ファーストビューA/Bテスト**
-                
-                - **テスト内容**:
-                  - A: 現状のファーストビュー
-                  - B: ベネフィット強調型のファーストビュー
-                  - C: 社会的証明強調型のファーストビュー
-                
-                - **測定指標**: FV残存率、コンバージョン率
-                - **テスト期間**: 2-4週間
-                - **必要サンプルサイズ**: 各パターンあたり1,000セッション以上
-                
-                **2. CTAボタンA/Bテスト**
-                
-                - **テスト内容**:
-                  - A: 現状のCTAボタン
-                  - B: 色変更（アクセントカラー #002060 → オレンジ系）
-                  - C: テキスト変更（緊急性やベネフィットを強調）
-                
-                - **測定指標**: クリック率、コンバージョン率
-                - **テスト期間**: 1-2週間
-                
-                **3. フォーム長A/Bテスト**
-                
-                - **テスト内容**:
-                  - A: 現状のフォーム（入力項目数）
-                  - B: 簡略化フォーム（必須項目のみ）
-                  - C: 2ステップフォーム（段階的に情報収集）
-                
-                - **測定指標**: フォーム開始率、完了率、コンバージョン率
-                - **テスト期間**: 2-3週間
-                """)
-            
-            with st.expander("優先度低: 中長期的な施策"):
-                st.markdown(f"""
-                **1. パーソナライゼーションの導入**
-                
-                - **実施内容**:
-                  - デバイス別LPの出し分け
-                  - チャネル別メッセージの最適化
-                  - リピーターと新規ユーザーで異なるLPを表示
-                
-                - **期待効果**: 全体CVR 20-30%向上
-                - **実施期間**: 2-3ヶ月
-                - **必要リソース**: エンジニア2-3名、デザイナー1-2名
-                
-                **2. 動画コンテンツの強化**
-                
-                - **実施内容**:
-                  - 製品デモ動画の追加
-                  - 顧客事例インタビュー動画
-                  - アニメーションで複雑な概念を説明
-                
-                - **期待効果**: エンゲージメント向上、CVR 10-15%向上
-                - **実施期間**: 1-2ヶ月
-                - **必要リソース**: 動画クリエイター1-2名
-                
-                **3. リターゲティング戦略の構築**
-                
-                - **実施内容**:
-                  - 離脱ユーザーへのリターゲティング広告
-                  - カート放棄ユーザーへのメール送信
-                  - ページ途中離脱ユーザーへの特別オファー
-                
-                - **期待効果**: 全体コンバージョン数 15-25%増加
-                - **実施期間**: 1-2ヶ月
-                - **必要リソース**: マーケター1名、エンジニア1名
-                
-                **4. チャネル最適化と予算再配分**
-                
-                - **実施内容**:
-                  - {best_channel['チャネル']}への予算増額
-                  - {worst_channel['チャネル']}のターゲティング見直しまたは停止
-                  - 新規チャネルのテスト（リスク分散）
-                
-                - **期待効果**: ROI 20-30%向上
-                - **実施期間**: 継続的
-                - **必要リソース**: マーケティングマネージャー1名
-                """)
-            
-            with st.expander("実施ロードマップ（3ヶ月間）"):
-                st.markdown("""
-                | 時期 | 施策 | 目標KPI | 担当 |
-                |------|------|----------|------|
-                | 1週目 | ファーストビュー最適化 | FV残存率 +15% | デザインチーム |
-                | 2-3週目 | ボトルネックページ改善 | 離脱率 -30% | デザイン+開発 |
-                | 4-5週目 | デバイス最適化 | モバイルCVR +30% | 開発チーム |
-                | 6-8週目 | FVA/Bテスト | 全体CVR +10% | マーケティング |
-                | 9-10週目 | CTAA/Bテスト | クリック率 +15% | マーケティング |
-                | 11-12週目 | リターゲティング導入 | コンバージョン数 +20% | マーケティング |
-                
-                **期待される総合効果:**
-                - コンバージョン率: {conversion_rate:.2f}% → {conversion_rate * 1.5:.2f}% (50%向上)
-                - 月間コンバージョン数: 現在の1.5倍
-                - ROI: 20-30%向上
-                """)
-            
+            # AI分析用のデータを準備
+            kpi_data = {
+                'current_cvr': current_cvr if current_cvr is not None else 0,
+                'current_cv': current_cv if current_cv is not None else 0,
+                'current_cpa': current_cpa if current_cpa is not None else 0,
+                'fv_retention_rate': fv_retention_rate,
+                'final_cta_rate': final_cta_rate,
+                'max_exit_page': max_exit_page,
+                'worst_device': worst_device,
+                'best_channel': best_channel,
+                'worst_channel': worst_channel,
+                'inferred_appeal_point': inferred_appeal_point,
+                'conversion_rate': conversion_rate
+            }
+
+            target_info = {
+                'target_cvr': target_cvr,
+                'target_cv': target_cv,
+                'target_cpa': target_cpa,
+                'daily_target_cv': daily_target_cv,
+                'daily_target_cvr': daily_target_cvr,
+                'target_customer': target_customer,
+                'other_info': other_info,
+                'analysis_days': analysis_days
+            }
+
+            with st.spinner("AIが改善提案を作成中..."):
+                # AI分析を実行
+                ai_response = ai_analysis.analyze_improvement_proposal_expert(lp_text_content, kpi_data, target_info)
+                st.markdown(ai_response)
+
             # 閉じるボタン
             if st.button("AI分析を閉じる", key="ai_analysis_close"):
                 st.session_state.ai_analysis_open = False
-
             st.success("AI分析が完了しました！上記の提案を参考に、LPの改善を進めてください。")
     
     # 既存の質問ボタンは保持

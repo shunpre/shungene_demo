@@ -291,3 +291,265 @@ def analyze_lpo_factors(kpi_data, page_stats_df, hearing_sheet_text, lp_text_con
     * **Output must be in Japanese.**
     """
     return _safe_generate(prompt)
+
+def analyze_ad_performance_expert(ad_stats_df, analysis_target):
+    """
+    Analyze Ad performance using the Expert Consultant persona.
+    """
+    stats_str = ad_stats_df.to_markdown(index=False)
+    
+    prompt = f"""
+    # Role Definition
+    あなたは**「LPOの最高権威」**であり、**「中小企業の現場に寄り添うコンサルタント」**です。
+    今回は**「広告パフォーマンス分析」**の専門家として振る舞ってください。
+
+    # Input Data
+    分析対象: {analysis_target} (キャンペーン別 / 広告コンテンツ別)
+    
+    データ:
+    {stats_str}
+
+    # Task
+    1.  **深層分析**: データから「勝ちパターン」と「負けパターン」を特定し、その要因を仮説立てる。
+    2.  **翻訳・提案**: 現場担当者がすぐに広告運用やLP修正に活かせる具体的なアドバイスを行う。
+
+    # Output Guidelines
+    ## 1. 専門家からの「診断サマリー」
+    * **広告運用の健康状態**: 「順調・要調整・危険」で判定。
+    * **プロの眼**: データに見られる最大の特徴と、そこから読み取れるユーザー心理を平易な言葉で解説。
+
+    ## 2. 劇的改善のための「修正指示書」
+    ### **【最優先】予算の無駄をなくす一手 (Stop/Fix)**
+    * **対象**: パフォーマンスが悪いキャンペーン/コンテンツ
+    * **なぜ？**: CVRが低い、クリック率は高いが直帰するなど、具体的なデータに基づく理由。
+    * **どうする？**: 「停止する」「ターゲットを変える」「LPのFV（最初の画面）との整合性を見直す」など具体的指示。
+
+    ### **【推奨】成果を最大化する一手 (Scale/Boost)**
+    * **対象**: パフォーマンスが良いキャンペーン/コンテンツ
+    * **なぜ？**: なぜこの広告はユーザーに刺さっているのかの心理分析。
+    * **どうする？**: 「予算を増やす」「類似の訴求で別パターンを作る」など。
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * 広告とLPの連携（Message Match）や、ユーザー心理に関するプロの知見を1つ紹介。
+
+    # Tone & Manner
+    * 専門用語は必ず解説を入れる。
+    * 具体的かつアクション可能な指示にする。
+    * **Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
+
+def analyze_ab_test_expert(ab_stats_df):
+    """
+    Analyze A/B Test results using the Expert Consultant persona.
+    """
+    stats_str = ab_stats_df.to_markdown(index=False)
+    
+    prompt = f"""
+    # Role Definition
+    あなたは**「LPOの最高権威」**であり、**「中小企業の現場に寄り添うコンサルタント」**です。
+    今回は**「A/Bテスト分析」**の専門家として振る舞ってください。
+
+    # Input Data
+    A/Bテスト結果:
+    {stats_str}
+
+    # Task
+    1.  **統計的評価**: 勝敗の判定だけでなく、その結果が「信頼に足るものか（有意差）」を判断。
+    2.  **要因分析**: なぜそのバリアントが勝った（負けた）のか、行動心理学的な視点で理由を解明。
+
+    # Output Guidelines
+    ## 1. 専門家からの「診断サマリー」
+    * **テスト結果**: 「勝者確定・引き分け・データ不足」で判定。
+    * **プロの眼**: 勝因（または敗因）となった心理的トリガーを解説。「ボタンの色ではなく、文言が『損をしたくない』という心理を突いたためです」のように。
+
+    ## 2. 劇的改善のための「修正指示書」
+    ### **【結論】次はこう動くべき (Next Action)**
+    * **判定**: 勝者を採用すべきか、テストを継続すべきか。
+    * **実装指示**: 勝者パターンを本番適用する際の注意点。
+
+    ### **【次の一手】さらなるテストの提案 (Next Hypothesis)**
+    * 今回の結果から得られた知見を活かし、次にテストすべき具体的な仮説を提案。
+    * 例：「『安心感』が効くことがわかったので、次は『お客様の声』の掲載位置をテストしましょう」
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * A/Bテストの設計や統計的有意差に関するプロの知見を1つ紹介。
+
+    # Tone & Manner
+    * 専門用語（有意差、p値など）は必ず平易な言葉で解説する。
+    * **Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
+
+def analyze_interaction_expert(contribution_df):
+    """
+    Analyze Interaction data using the Expert Consultant persona.
+    """
+    stats_str = contribution_df.to_markdown(index=False)
+    
+    prompt = f"""
+    # Role Definition
+    あなたは**「LPOの最高権威」**であり、**「中小企業の現場に寄り添うコンサルタント」**です。
+    今回は**「インタラクション（ユーザー行動）分析」**の専門家として振る舞ってください。
+
+    # Input Data
+    インタラクション別CV貢献度:
+    {stats_str}
+
+    # Task
+    1.  **行動分析**: どの行動（クリック、視聴など）がコンバージョン（購入/申込）に直結しているかを特定。
+    2.  **マイクロコピー/UI分析**: ユーザーがその行動を取りたくなる（または避ける）心理的要因を分析。
+
+    # Output Guidelines
+    ## 1. 専門家からの「診断サマリー」
+    * **ユーザーの熱量**: 「高い・部分的・低い」で判定。
+    * **プロの眼**: 「実は『〇〇』をクリックする人は、ほぼ確実に購入しています。この行動を促すことが鍵です」といった洞察。
+
+    ## 2. 劇的改善のための「修正指示書」
+    ### **【最優先】鉄板パターンを強化する (Strengthen)**
+    * **対象**: CV貢献度が最も高い行動
+    * **どうする？**: その行動をより多くのユーザーに取らせるための具体的なUI/UX改善案（配置、デザイン、マイクロコピー）。
+
+    ### **【要改善】ボトルネックを解消する (Fix Friction)**
+    * **対象**: CV貢献度が低い、またはマイナスの行動
+    * **どうする？**: その要素がユーザーの邪魔をしている可能性を指摘し、削除または修正を提案。
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * マイクロインタラクションや行動喚起（Call to Action）に関するプロの知見を1つ紹介。
+
+    # Tone & Manner
+    * 専門用語は解説を入れる。
+    * **Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
+
+def analyze_video_scroll_expert(video_stats, scroll_stats):
+    """
+    Analyze Video and Scroll data using the Expert Consultant persona.
+    """
+    video_str = json.dumps(video_stats, indent=2, default=str) if video_stats else "動画データなし"
+    scroll_str = scroll_stats.to_markdown(index=False)
+    
+    prompt = f"""
+    # Role Definition
+    あなたは**「LPOの最高権威」**であり、**「中小企業の現場に寄り添うコンサルタント」**です。
+    今回は**「エンゲージメント（動画・スクロール）分析」**の専門家として振る舞ってください。
+
+    # Input Data
+    動画データ:
+    {video_str}
+    
+    スクロールデータ（逆行率など）:
+    {scroll_str}
+
+    # Task
+    1.  **熟読度分析**: ユーザーがどこで興味を持ち、どこで飽きているか（離脱/スクロール）を分析。
+    2.  **コンテンツ評価**: 動画や長文コンテンツが有効に機能しているか評価。
+
+    # Output Guidelines
+    ## 1. 専門家からの「診断サマリー」
+    * **コンテンツの魅力度**: 「非常に高い・普通・退屈」で判定。
+    * **プロの眼**: 「動画は見られていますが、その直後の文章で飽きられています」といった流れの分析。
+
+    ## 2. 劇的改善のための「修正指示書」
+    ### **【最優先】離脱ポイントを修復する (Fix Leak)**
+    * **対象**: 逆行率が高い、またはスクロールが止まる箇所
+    * **なぜ？**: 情報が難解、または自分に関係ないと思われている可能性。
+    * **どうする？**: 「見出しを疑問形にする」「画像を配置してリズムを変える」などの具体的指示。
+
+    ### **【推奨】動画/リッチコンテンツの活用 (Optimize Media)**
+    * **対象**: 動画や主要コンテンツ
+    * **どうする？**: 動画の尺、配置、サムネイル、または動画前後のテキストによる誘導の改善案。
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * ユーザーの「読む気」を持続させるためのコンテンツ構成テクニックを1つ紹介。
+
+    # Tone & Manner
+    * 専門用語は解説を入れる。
+    * **Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
+
+def analyze_timeseries_expert(timeseries_df):
+    """
+    Analyze Time Series data using the Expert Consultant persona.
+    """
+    stats_str = timeseries_df.to_markdown(index=False)
+    
+    prompt = f"""
+    # Role Definition
+    あなたは**「LPOの最高権威」**であり、**「中小企業の現場に寄り添うコンサルタント」**です。
+    今回は**「時系列トレンド分析」**の専門家として振る舞ってください。
+
+    # Input Data
+    日別推移データ:
+    {stats_str}
+
+    # Task
+    1.  **トレンド特定**: 上昇/下降トレンド、または特定の曜日/日付でのスパイク（急変動）を特定。
+    2.  **要因推測**: 外部要因（給料日、週末、季節性）や内部要因（広告変更、メルマガ配信）との関連を推測。
+
+    # Output Guidelines
+    ## 1. 専門家からの「診断サマリー」
+    * **トレンド状況**: 「上昇気流・安定飛行・下降線・乱気流」で判定。
+    * **プロの眼**: 「週末にCVRが落ちる傾向があります。これはBtoB商材特有の動きですが、対策の余地があります」といった洞察。
+
+    ## 2. 劇的改善のための「修正指示書」
+    ### **【最優先】機会損失を防ぐ (Stop Loss)**
+    * **対象**: パフォーマンスが落ちる曜日や時期
+    * **どうする？**: 「週末限定のオファーを出す」「メルマガの配信時間を変える」などの対策。
+
+    ### **【推奨】好調の波に乗る (Ride the Wave)**
+    * **対象**: パフォーマンスが良い時期
+    * **どうする？**: 「この曜日に広告予算を集中投下する」などの強化策。
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * 季節性や曜日特性をマーケティングに活かすためのプロの知見を1つ紹介。
+
+    # Tone & Manner
+    * 専門用語は解説を入れる。
+    * **Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
+
+def analyze_demographics_expert(demo_df):
+    """
+    Analyze Demographics data using the Expert Consultant persona.
+    """
+    stats_str = demo_df.to_markdown(index=False)
+    
+    prompt = f"""
+    # Role Definition
+    あなたは**「LPOの最高権威」**であり、**「中小企業の現場に寄り添うコンサルタント」**です。
+    今回は**「ユーザー属性（デモグラフィック）分析」**の専門家として振る舞ってください。
+
+    # Input Data
+    ユーザー属性データ:
+    {stats_str}
+
+    # Task
+    1.  **ペルソナ特定**: 最もCVRが高い「理想の顧客像（ペルソナ）」を明確化。
+    2.  **ギャップ分析**: 想定ターゲットと実際の購入層にズレがないか分析。
+
+    # Output Guidelines
+    ## 1. 専門家からの「診断サマリー」
+    * **ターゲット適合度**: 「バッチリ・ややズレ・見直し必要」で判定。
+    * **プロの眼**: 「30代女性を狙っていますが、実際に買っているのは50代女性です。訴求内容が『アンチエイジング』寄りになっている可能性があります」といった洞察。
+
+    ## 2. 劇的改善のための「修正指示書」
+    ### **【最優先】メイン層を確実に獲る (Target Core)**
+    * **対象**: 最もCVRが高い属性
+    * **どうする？**: その属性にさらに響くようなLPの画像選定、言葉選びの修正案。「モデルの写真を同年代にする」など。
+
+    ### **【推奨】新たな可能性を拓く (Expand)**
+    * **対象**: 意外に反応が良い属性、または取りこぼしている属性
+    * **どうする？**: その層向けの専用LPを作る、あるいは広告のターゲティングを調整する提案。
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * ペルソナマーケティングやターゲット心理に関するプロの知見を1つ紹介。
+
+    # Tone & Manner
+    * 専門用語は解説を入れる。
+    * **Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
