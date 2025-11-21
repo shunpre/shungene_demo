@@ -428,22 +428,27 @@ global_scenario = st.sidebar.selectbox(
 )
 
 # データ生成ボタン（赤色にするためJavaScriptでスタイル適用）
+# シナリオ選択
+scenario_options = ["Standard", "Leaky Bucket", "Niche Fanbase", "Mobile Struggle"]
+selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=0)
+
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
-    with st.spinner(f"「{global_scenario}」シナリオのデータを生成中..."):
+    with st.spinner(f"「{selected_scenario}」シナリオのデータを生成中..."):
         # 新しいダミーデータ生成関数を呼び出す
-        # シナリオ名を直接渡し、日数は30日、ページ数は16ページで固定 (LPの実際のページ数に合わせる)
+        # 日数は30日で固定
         num_days_gen = 30
-        num_pages_gen = 16 # 瞬フォームのページ数に合わせる
+        # ページ数はシナリオ内でランダム生成されるため、ここでは渡さない（またはデフォルト値を渡す）
+        # generate_dummy_data側でnum_pages引数はデフォルト値を持つが、シナリオ設定が優先される設計にしたため、
+        # ここでは明示的に渡さなくても良いが、互換性のために一応渡す
+        
         st.session_state.generated_data = generate_dummy_data(
-            scenario=global_scenario,
+            scenario=selected_scenario,
             num_days=num_days_gen,
-            num_pages=num_pages_gen,
             target_cvr=target_cvr_input / 100 # %を小数に変換して渡す
         )
-        st.session_state.data_scenario = global_scenario # 現在のシナリオを保存
+        st.session_state.data_scenario = selected_scenario # 現在のシナリオを保存
         st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
     # ページリダイレクトを削除し、現在のページを維持する
-    # query_params_proxy["page"] = "全体サマリー" の処理を削除
     pass
 
     st.rerun()
