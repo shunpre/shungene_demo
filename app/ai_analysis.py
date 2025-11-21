@@ -185,7 +185,7 @@ def answer_user_question(context_data, question):
     """
     return _safe_generate(prompt)
 
-def analyze_lpo_factors(kpi_data, page_stats_df, hearing_sheet_text, lp_text_content):
+def analyze_lpo_factors(kpi_data, page_stats_df, hearing_sheet_text, lp_text_content, lp_format="縦長"):
     """
     Perform a comprehensive LPO factor analysis based on the user's detailed prompt.
     """
@@ -194,154 +194,100 @@ def analyze_lpo_factors(kpi_data, page_stats_df, hearing_sheet_text, lp_text_con
     page_stats_str = page_stats_df.to_markdown(index=False)
     
     # Extract LP content
-    headlines = "\n".join(lp_text_content.get('headlines', []))
-    body_copy = "\n".join(lp_text_content.get('body_copy', []))
-    ctas = "\n".join(lp_text_content.get('ctas', []))
+    # Handle both dictionary (if structured) and string input
+    if isinstance(lp_text_content, dict):
+        headlines = "\n".join(lp_text_content.get('headlines', []))
+        body_copy = "\n".join(lp_text_content.get('body_copy', []))
+        ctas = "\n".join(lp_text_content.get('ctas', []))
+        lp_content_str = f"Headlines: {headlines}\nBody Copy: {body_copy}\nCTAs: {ctas}"
+    else:
+        lp_content_str = str(lp_text_content)
 
     prompt = f"""
-    You are an expert Data Analyst and LPO Specialist.
-    Perform a comprehensive LPO analysis based on the following "LPO Factor Analysis" framework.
-    
-    **Input Data:**
-    
-    1. **Hearing Sheet / Product Info:**
-    {hearing_sheet_text}
-    
-    2. **Current KPIs (Result Data):**
-    {kpi_str}
-    
-    3. **Page Flow / Heatmap Substitute Data:**
-    {page_stats_str}
-    
-    4. **LP Content (Extracted Text):**
-    Headlines: {headlines}
-    Body Copy: {body_copy}
-    CTAs: {ctas}
-    
-    **Analysis Framework & Prompt:**
-    
-    【LPO 要因分析】
-    
-    目的: 限られた情報からでも、CVRが低い原因を可能な限り分析し、効果的な改善施策を立案するための現状分析を行う。
-    前提:
-    自身は、データ分析に基づき、冷静かつ客観的に課題を特定できる、データ分析の専門家である。
-    分析対象のLPは、現状CVRが低く、改善の余地がある。
-    分析結果は、具体的な改善施策の立案に活用される。
-    
-    手順:
-    基本情報の確認:
-    ターゲット層（顕在層、準顕在層、潜在層、無関心層）: [AIがヒアリングシートと過去のやり取りから推測]
-    商品・サービス名: [AIがヒアリングシートから自動記入]
-    構成定義: [AIが過去のやり取りから推測]
-    目標CVR（数値目標）: [AIがヒアリングシートから自動記入]
-    現状のCVR（数値）: [KPIデータから自動記入]
-    現状のCV数: [KPIデータから自動記入]
-    現状のCPA: [KPIデータから自動記入]
-    想定流入経路（広告媒体）: [AIがヒアリングシートから自動記入]
-    上記を正確に把握し、分析の軸とする。
-    
-    現状分析: 現状のLPを、以下の4つの観点から詳細に分析し、CVRが低い原因を特定する。
-    
-    2-1. ユーザーフロー分析： ユーザーがLP内でどのように行動しているかを分析し、離脱ポイントや問題点を特定する。
-    * 2-1-1. ファーストビュー:
-        * AIによる分析:
-            * FV離脱率: [Page Statisticsのデータから推測 (e.g. 1 - retention at page 1)]
-            * FVのクリック状況: [KPIデータのclick rate等から推測]
-            * 最初の見出しは？: [LP ContentのHeadlinesから抽出]
-        * 人間による評価 (AIがシミュレート):
-            * 上記のデータと、LPのテキスト情報を参考に、FVの課題と改善案を記入してください。
-    * 2-1-2. コンテンツの流れ:
-        * AIによる分析:
-            * 最終CTA到達率: [KPIデータのfinal_cta_rateを使用]
-        * 人間による評価 (AIがシミュレート):
-            * 提供されたデータ、LPのテキスト情報、ヒアリングシート情報を参考に、コンテンツの流れの課題と改善案を記入してください。
-            * 特に、ユーザーが離脱しやすい箇所を推測し、その原因と改善案を記述してください。
-    * 2-1-3. CTA:
-        * AIによる分析:
-            * 最終CTA到達後のアクション率: [KPIデータのconversion_rate / final_cta_rate 等から推測]
-        * 人間による評価 (AIがシミュレート):
-            * 最終CTA到達後のアクション率が低い場合、その原因を推測し、改善案を記述してください。
-            * CTAの数、配置、デザイン、文言は適切か、ヒアリングシートの内容と照らし合わせて評価してください。
-            
-    2-2. コンテンツ分析： LP内のコンテンツ内容を分析し、ユーザーのニーズや課題に合致しているか、行動を促す要素が備わっているかを特定する。
-    * 2-2-1. ヘッドライン:
-        * AIによる分析:
-            * ヘッドラインの文字数、キーワード含有率: [AIが自動算出]
-            * ヘッドラインで用いられている心理効果: [AIが推測]
-        * 人間による評価 (AIがシミュレート):
-            * ヘッドラインは、ターゲット層の興味関心を引くものになっているか？
-            * ヘッドラインは、商品・サービスの価値を適切に表現しているか？
-            * ヘッドラインの課題と改善案を記入してください。
-    * 2-2-2. ボディコピー:
-        * AIによる分析:
-            * 各パートの文字数、キーワード含有率: [AIが自動算出]
-            * 各パートで活用されている心理効果: [AIが推測]
-        * 人間による評価 (AIがシミュレート):
-            * ボディコピーは、ターゲット層の課題やニーズに共感し、解決策を提示できているか？
-            * 商品・サービスの価値やベネフィットを具体的に説明できているか？
-            * アピールポイントを訴求できているか？
-            * 一貫性のあるストーリーが展開されているか？
-            * ボディコピーの課題と改善案を記入してください。
-    * 2-2-3. CTA (Content):
-        * AIによる分析:
-            * CTAボタンの文言: [LP Contentから抽出]
-        * 人間による評価 (AIがシミュレート):
-            * CTAは、行動喚起を促す表現になっているか？
-            * ユーザーにとって魅力的で、クリックしやすいものになっているか？
-            * CTAの課題と改善案を記入してください。
-    * 2-2-4. FAQ:
-        * AIによる分析:
-            * FAQの数、質問と回答の文字数: [LP Contentから推測]
-        * 人間による評価 (AIがシミュレート):
-            * FAQは、ユーザーの疑問や不安を解消できているか？
-            * 購入を後押しする内容になっているか？
-            * FAQの課題と改善案を記入してください。
-            
-    2-3. デザイン・レイアウト分析： (テキスト情報から推測できる範囲で分析)
-    * 2-3-1. ファーストビュー & 全体構成:
-        * 人間による評価 (AIがシミュレート):
-            * (テキスト情報から) 伝えたいメッセージが明確に伝わる構成になっているか？
-            * 情報の優先順位は適切か？
-            * 課題と改善案を記入してください。
-            
-    2-4. 市場価値分析： 競合との比較から、自社サービスの位置づけと優位性を評価する。
-    * 競合との差別化:
-        * 人間による評価 (AIがシミュレート):
-            * 競合と比較して、自社サービスの独自性や優位性は明確に打ち出されているか？ (ヒアリングシート情報に基づく)
-            * 他社との差別化ポイントは、ターゲットにとって魅力的か？
-            * 他社との比較、独自性に関する課題と改善案を記入してください。
-            
-    2-5. 流入経路分析：
-    * 2-5-1. 流入元 & キーワード:
-        * AIによる分析:
-            * ヒアリングシートから流入元・キーワード情報を抽出
-        * 人間による評価 (AIがシミュレート):
-            * 各流入元のユーザー属性やニーズは、LPのターゲット層と合致しているか？
-            * 流入キーワードは、LPの内容と合致しているか？
-            * 広告媒体とLPのターゲット層は一致しているか？
-            * 課題と改善案を記入してください。
+    # Role Definition
+    あなたは、世界的な実績を持つ**「LPOの最高権威（データサイエンティスト兼行動心理学者）」**でありながら、同時に**「中小企業の現場に寄り添う、説明上手のコンサルタント」**です。
 
-    原因の特定: 上記の分析結果に基づき、CVRが低い原因を、具体的かつ詳細に特定する。
-    
-    改善の方向性の提示: 特定された原因に基づき、具体的な改善の方向性を提示する。
-    
-    **Output Format:**
-    Generate the report strictly following the "Output Format" specified in the prompt below.
-    
-    ## LP現状分析レポート
-    
-    **基本情報**
-    ... (Fill in based on analysis)
-    
-    **現状分析**
-    ... (Follow the structure: 1. User Flow, 2. Content, 3. Design, 4. Market Value, 5. Traffic Sources, 6. Ad Analysis)
-    
-    **CVRが低い原因（結論）**
-    ...
-    
-    **改善の方向性**
-    ...
-    
-    **IMPORTANT: Output must be in Japanese.**
+    あなたの役割は以下の2段階です：
+    1.  **深層分析フェーズ**: 脳内で最新の行動経済学、UX理論、データ分析手法を駆使し、一切の手加減なく高度で微細な分析を行う。
+    2.  **翻訳・提案フェーズ**: その高度な分析結果を、専門用語を知らない現場担当者でも「なるほど！そういうことか」と直感的に理解でき、即座に行動に移せるレベルまで噛み砕いて出力する。
+
+    ---
+
+    # Input Data
+    以下の情報を基に分析します。情報が不足している場合は、プロの知見に基づき**「一般的な業界傾向」から論理的に推測**して補完してください。
+
+    1.  **基本情報**:
+        * LP形式: {lp_format} (縦長 / スワイプ型 / 記事LPなど)
+        * ヒアリングシート情報（商品・ターゲット・課題など）:
+        {hearing_sheet_text}
+
+    2.  **現状データ (定性・定量)**:
+        * KPIデータ:
+        {kpi_str}
+        * ページ統計データ (離脱率・滞在時間など):
+        {page_stats_str}
+
+    3.  **クリエイティブ**:
+        * LPテキストコンテンツ:
+        {lp_content_str}
+
+    ---
+
+    # Internal Analysis Framework (AIの脳内思考プロセス)
+    ※出力には出さず、以下の高度な視点で分析を実行してください。
+
+    1.  **Behavioral Psychology (行動心理学)**:
+        * *Cialdini’s 6 Principles* (返報性、コミットメント、社会的証明、権威、好意、希少性) の欠如特定。
+        * *Fogg Behavior Model* (B=MAP) における Motivation/Ability/Trigger のバランス不全分析。
+    2.  **Cognitive UX (認知科学・UX)**:
+        * *Cognitive Load* (認知負荷) の発生源特定。
+        * *Gutenberg Diagram / Z-Pattern / F-Pattern* に基づく視線誘導の断絶分析。
+        * *Micro-copy Analysis*: CTA周辺のフリクション（心理的抵抗）分析。
+    3.  **Data Logic (データロジック)**:
+        * *Message Match*: 流入元（広告）の期待値とLP着地時の整合性乖離。
+        * *Funnel Drop-off*: スクロール深度やカード遷移率におけるボトルネック特定。
+
+    ---
+
+    # Output Guidelines (ユーザーへの回答形式)
+    分析結果を、以下の構成で**「平易な言葉」**に変換して出力してください。
+
+    ## 1. 専門家からの「診断サマリー」
+    * **LPの健康状態**: 「健康・要注意・重症」で判定。
+    * **プロの眼**: 
+        * 「専門的な視点で見ると、実は『〇〇』が最大の原因です」と、データや心理学の根拠を添えて、しかし平易な言葉で解説。
+        * 例：「ボタンの色ではなく、実はお客様が『自分には関係ない』と感じてしまう文章の並び順に根本原因があります」
+
+    ## 2. 劇的改善のための「修正指示書」 (優先度順)
+
+    ### **【最優先】今すぐ直すべき箇所 (Priority High)**
+    ※修正コストが低く、成果インパクトが最大のもの。
+
+    * **どこを？**: [対象箇所を具体的に指名]
+    * **なぜ？ (翻訳されたロジック)**:
+        * 専門用語を使わずに解説。
+        * *悪い例*: 「バンドワゴン効果が不足しており、ソーシャルプルーフの提示が必要です」
+        * *良い例*: 「『みんなが使っている』という安心感がないため、お客様が購入をためらっています。行列のできているラーメン屋が美味しく見えるのと同じ心理を使いましょう」
+    * **どう直す？ (具体的なアクション)**:
+        * **Before**: [現状のテキスト/構成]
+        * **After**: [改善後のテキスト案/構成案] ※そのままコピペで使えるレベルで。
+        * **デザイン指示**: [色、配置、文字サイズなどの具体的指示]
+
+    ### **【推奨】数字をさらに伸ばす一手 (Priority Mid)**
+    ※流入経路に合わせた調整や、テストすべき項目。
+
+    * **対象**: [流入元やターゲット属性]
+    * **改善案**: [具体的な修正内容]
+
+    ## 3. 今後のための「ワンポイント・レッスン」
+    * 今回の分析で用いた**「プロのテクニック（心理学や法則）」**を1つだけ、簡単な言葉で紹介してください。担当者が次回以降、自分で気づけるようになるための教育的コメントです。
+
+    ---
+
+    # Tone & Manner Constraints
+    * **専門用語禁止（または即解説）**: 「CTA」「FV」「CVR」などの用語を使う場合は、必ず「CTA（申し込みボタン）」「FV（最初に表示される画面）」のように補足を付けるか、平易な言葉に言い換えること。
+    * **共感と論理**: 担当者の努力を否定せず、「こうすればもっと良くなる」というポジティブかつ論理的なトーンで記述すること。
+    * **具体性**: 「わかりやすくする」「魅力を伝える」といった抽象的な指示は禁止。具体的な「文言」「色」「位置」を指定すること。
+    * **Output must be in Japanese.**
     """
     return _safe_generate(prompt)

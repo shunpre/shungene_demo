@@ -2710,6 +2710,10 @@ elif selected_analysis == "LPO要因分析（詳細版）":
         period_options = ["過去30日間", "全期間"]
         selected_period = st.selectbox("データ期間", period_options, index=0, key="lpo_analysis_period")
 
+    # LP形式選択 (New)
+    lp_format_options = ["縦長LP (一般的)", "スワイプ型LP", "記事LP", "チャットボット型", "その他"]
+    selected_lp_format = st.radio("LP形式", lp_format_options, index=0, horizontal=True, key="lpo_lp_format")
+
     # データフィルタリング
     if selected_period == "過去30日間":
         start_date = df['event_date'].max() - timedelta(days=30)
@@ -2793,7 +2797,8 @@ elif selected_analysis == "LPO要因分析（詳細版）":
                         kpi_data=kpi_data,
                         page_stats_df=page_stats,
                         hearing_sheet_text=hearing_sheet_text,
-                        lp_text_content=lp_text_content
+                        lp_text_content=lp_text_content,
+                        lp_format=selected_lp_format
                     )
                     st.markdown(analysis_result)
                 except Exception as e:
