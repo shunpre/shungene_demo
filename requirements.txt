@@ -10,3 +10,4 @@ requests
 Pillow
 beautifulsoup4
 google-generativeai
+tabulate
