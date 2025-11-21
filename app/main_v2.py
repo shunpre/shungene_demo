@@ -110,12 +110,12 @@ config_path = os.path.join(project_root, 'config.yaml')
 with open(config_path) as file:
     config = yaml.load(file, Loader=SafeLoader)
 
+# Fix: Do not pass preauthorized to Authenticate constructor
 authenticator = stauth.Authenticate(
     config['credentials'],
     config['cookie']['name'],
     config['cookie']['key'],
-    config['cookie']['expiry_days'],
-    config['preauthorized']
+    config['cookie']['expiry_days']
 )
 
 # Login Widget
@@ -134,8 +134,11 @@ elif authentication_status is None:
 if not authentication_status:
     with st.expander("新規登録はこちら (Register)"):
         try:
+            # Get preauthorized emails if they exist
+            pre_authorized_emails = config.get('preauthorized', {}).get('emails', [])
+            
             # register_user returns (email, username, name) if successful, else (None, None, None)
-            email_reg, username_reg, name_reg = authenticator.register_user(pre_authorized=None)
+            email_reg, username_reg, name_reg = authenticator.register_user(pre_authorized=pre_authorized_emails)
             if email_reg:
                 st.success('User registered successfully')
                 # Save config file with new user
