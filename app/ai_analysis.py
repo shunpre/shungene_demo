@@ -14,8 +14,8 @@ def get_gemini_model():
     
     try:
         genai.configure(api_key=api_key)
-        # Using gemini-1.5-pro for advanced analysis capabilities
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        # Using gemini-pro for better compatibility
+        model = genai.GenerativeModel('gemini-pro')
         return model
     except Exception as e:
         st.error(f"Failed to configure Gemini API: {e}")
