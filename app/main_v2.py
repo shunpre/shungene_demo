@@ -518,7 +518,7 @@ else:
 # グルーピングされたメニュー項目
 menu_groups = {
     "基本分析": ["全体サマリー", "リアルタイムビュー", "時系列分析", "デモグラフィック情報", "アラート"],
-    "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
+    "LP最適化分析": ["ページ分析", "A/Bテスト分析", "LPO要因分析（詳細版）"],
     "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
     "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
 }
@@ -2685,6 +2685,119 @@ elif selected_analysis == "A/Bテスト分析":
             if not ab_stats.empty:
                 winner = ab_stats.sort_values('コンバージョン率', ascending=False).iloc[0]
                 st.info(f"今回の勝者「{winner['バリアント']}」の要素をベースに、さらに改善できる点をテストしましょう。例えば、CTAボタンの文言を変える、フォームの項目を減らす、などの新しい仮説でテストを計画するのが良いでしょう。")
+
+# タブ: LPO要因分析（詳細版）
+elif selected_analysis == "LPO要因分析（詳細版）":
+    st.markdown('<div class="sub-header">LPO要因分析（詳細版）</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">ヒアリングシート情報とLPのコンテンツ、そして実際のパフォーマンスデータを統合し、AIが包括的な改善提案を行います。</div>', unsafe_allow_html=True)
+
+    # --- フィルター設定 (簡易版) ---
+    st.markdown('<div class="sub-header">分析対象設定</div>', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        # LP選択
+        lp_options = sorted(df['page_location'].dropna().unique().tolist())
+        selected_lp = st.selectbox(
+            "分析対象LP", 
+            lp_options, 
+            index=0 if lp_options else None,
+            key="lpo_analysis_lp",
+            disabled=not lp_options
+        )
+    with col2:
+        # 期間選択
+        period_options = ["過去30日間", "全期間"]
+        selected_period = st.selectbox("データ期間", period_options, index=0, key="lpo_analysis_period")
+
+    # データフィルタリング
+    if selected_period == "過去30日間":
+        start_date = df['event_date'].max() - timedelta(days=30)
+        filtered_df = df[(df['event_date'] >= start_date) & (df['page_location'] == selected_lp)]
+    else:
+        filtered_df = df[df['page_location'] == selected_lp]
+
+    if filtered_df.empty:
+        st.error("選択されたLPのデータがありません。")
+        st.stop()
+
+    # --- 入力エリア ---
+    st.markdown("---")
+    st.markdown("#### 1. ヒアリングシート / 商品情報")
+    st.info("クライアントからのヒアリング内容、商品の特徴、ターゲット層、競合優位性などを入力してください。")
+    hearing_sheet_text = st.text_area(
+        "ヒアリングシート内容",
+        height=200,
+        placeholder="例：\nターゲット：30代〜40代の主婦\n商品：無添加のオーガニックスキンケア\n悩み：肌の乾燥、敏感肌\n競合優位性：国産オーガニック、コスパが良い\n...",
+        key="lpo_hearing_text"
+    )
+
+    st.markdown("#### 2. LPテキストコンテンツ")
+    st.info("LP内の主要なテキストコンテンツ（キャッチコピー、ボディコピー、権威付けなど）を入力してください。")
+    lp_text_content = st.text_area(
+        "LPテキスト内容",
+        height=200,
+        placeholder="例：\n【FV】\nもう乾燥に悩まない。自然の力で潤う肌へ。\n初回限定980円\n\n【悩み共感】\n夕方になると肌がカサカサ...\n化粧ノリが悪い...\nそんなあなたへ。\n...",
+        key="lpo_content_text"
+    )
+
+    # --- データ集計 (KPI & Page Stats) ---
+    # KPI計算
+    sessions = filtered_df['session_id'].nunique()
+    cv = filtered_df[filtered_df['cv_type'].notna()]['session_id'].nunique()
+    cvr = (cv / sessions * 100) if sessions > 0 else 0
+    
+    # 直帰率 (1ページのみで離脱したセッション / 全セッション)
+    bounced_sessions = filtered_df.groupby('session_id').filter(lambda x: x['max_page_reached'].max() == 1)['session_id'].nunique()
+    bounce_rate = (bounced_sessions / sessions * 100) if sessions > 0 else 0
+
+    kpi_data = {
+        "sessions": sessions,
+        "cvr": cvr,
+        "bounce_rate": bounce_rate,
+        "avg_stay_time": filtered_df['stay_ms'].mean() / 1000
+    }
+
+    # ページ別統計 (簡易版)
+    page_stats = filtered_df.groupby('page_num_dom').agg({
+        'session_id': 'nunique',
+        'stay_ms': 'mean',
+        'scroll_pct': 'mean' # 逆行率として代用または別途計算
+    }).reset_index()
+    page_stats.columns = ['ページ番号', 'ビュー数', '平均滞在時間(ms)', '平均スクロール率']
+    page_stats['平均滞在時間(秒)'] = page_stats['平均滞在時間(ms)'] / 1000
+    
+    # 離脱率計算
+    actual_page_count = int(filtered_df['page_num_dom'].max()) if not filtered_df.empty else 1
+    page_exit = []
+    for page_num in range(1, actual_page_count + 1):
+        reached = filtered_df[filtered_df['max_page_reached'] >= page_num]['session_id'].nunique()
+        exited = filtered_df[filtered_df['max_page_reached'] == page_num]['session_id'].nunique()
+        exit_rate = (exited / reached * 100) if reached > 0 else 0
+        page_exit.append({'ページ番号': page_num, '離脱率': exit_rate})
+    
+    page_exit_df = pd.DataFrame(page_exit)
+    page_stats = page_stats.merge(page_exit_df, on='ページ番号', how='left')
+
+    # --- 分析実行 ---
+    st.markdown("---")
+    st.markdown("#### 3. 分析実行")
+    
+    if st.button("LPO要因分析を実行（詳細版）", type="primary", use_container_width=True):
+        if not hearing_sheet_text or not lp_text_content:
+            st.warning("ヒアリングシート内容とLPテキスト内容は必須です。")
+        else:
+            with st.spinner("Gemini 3.0 Pro (Preview) が詳細な分析レポートを生成しています... これには数分かかる場合があります。"):
+                try:
+                    analysis_result = ai_analysis.analyze_lpo_factors(
+                        kpi_data=kpi_data,
+                        page_stats_df=page_stats,
+                        hearing_sheet_text=hearing_sheet_text,
+                        lp_text_content=lp_text_content
+                    )
+                    st.markdown(analysis_result)
+                except Exception as e:
+                    st.error(f"分析中にエラーが発生しました: {str(e)}")
 
 # タブ5: インタラクション分析
 elif selected_analysis == "インタラクション分析":

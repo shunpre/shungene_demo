@@ -184,3 +184,164 @@ def answer_user_question(context_data, question):
     Answer (in Japanese):
     """
     return _safe_generate(prompt)
+
+def analyze_lpo_factors(kpi_data, page_stats_df, hearing_sheet_text, lp_text_content):
+    """
+    Perform a comprehensive LPO factor analysis based on the user's detailed prompt.
+    """
+    # Convert data to strings
+    kpi_str = json.dumps(kpi_data, indent=2, default=str)
+    page_stats_str = page_stats_df.to_markdown(index=False)
+    
+    # Extract LP content
+    headlines = "\n".join(lp_text_content.get('headlines', []))
+    body_copy = "\n".join(lp_text_content.get('body_copy', []))
+    ctas = "\n".join(lp_text_content.get('ctas', []))
+
+    prompt = f"""
+    You are an expert Data Analyst and LPO Specialist.
+    Perform a comprehensive LPO analysis based on the following "LPO Factor Analysis" framework.
+    
+    **Input Data:**
+    
+    1. **Hearing Sheet / Product Info:**
+    {hearing_sheet_text}
+    
+    2. **Current KPIs (Result Data):**
+    {kpi_str}
+    
+    3. **Page Flow / Heatmap Substitute Data:**
+    {page_stats_str}
+    
+    4. **LP Content (Extracted Text):**
+    Headlines: {headlines}
+    Body Copy: {body_copy}
+    CTAs: {ctas}
+    
+    **Analysis Framework & Prompt:**
+    
+    【LPO 要因分析】
+    
+    目的: 限られた情報からでも、CVRが低い原因を可能な限り分析し、効果的な改善施策を立案するための現状分析を行う。
+    前提:
+    自身は、データ分析に基づき、冷静かつ客観的に課題を特定できる、データ分析の専門家である。
+    分析対象のLPは、現状CVRが低く、改善の余地がある。
+    分析結果は、具体的な改善施策の立案に活用される。
+    
+    手順:
+    基本情報の確認:
+    ターゲット層（顕在層、準顕在層、潜在層、無関心層）: [AIがヒアリングシートと過去のやり取りから推測]
+    商品・サービス名: [AIがヒアリングシートから自動記入]
+    構成定義: [AIが過去のやり取りから推測]
+    目標CVR（数値目標）: [AIがヒアリングシートから自動記入]
+    現状のCVR（数値）: [KPIデータから自動記入]
+    現状のCV数: [KPIデータから自動記入]
+    現状のCPA: [KPIデータから自動記入]
+    想定流入経路（広告媒体）: [AIがヒアリングシートから自動記入]
+    上記を正確に把握し、分析の軸とする。
+    
+    現状分析: 現状のLPを、以下の4つの観点から詳細に分析し、CVRが低い原因を特定する。
+    
+    2-1. ユーザーフロー分析： ユーザーがLP内でどのように行動しているかを分析し、離脱ポイントや問題点を特定する。
+    * 2-1-1. ファーストビュー:
+        * AIによる分析:
+            * FV離脱率: [Page Statisticsのデータから推測 (e.g. 1 - retention at page 1)]
+            * FVのクリック状況: [KPIデータのclick rate等から推測]
+            * 最初の見出しは？: [LP ContentのHeadlinesから抽出]
+        * 人間による評価 (AIがシミュレート):
+            * 上記のデータと、LPのテキスト情報を参考に、FVの課題と改善案を記入してください。
+    * 2-1-2. コンテンツの流れ:
+        * AIによる分析:
+            * 最終CTA到達率: [KPIデータのfinal_cta_rateを使用]
+        * 人間による評価 (AIがシミュレート):
+            * 提供されたデータ、LPのテキスト情報、ヒアリングシート情報を参考に、コンテンツの流れの課題と改善案を記入してください。
+            * 特に、ユーザーが離脱しやすい箇所を推測し、その原因と改善案を記述してください。
+    * 2-1-3. CTA:
+        * AIによる分析:
+            * 最終CTA到達後のアクション率: [KPIデータのconversion_rate / final_cta_rate 等から推測]
+        * 人間による評価 (AIがシミュレート):
+            * 最終CTA到達後のアクション率が低い場合、その原因を推測し、改善案を記述してください。
+            * CTAの数、配置、デザイン、文言は適切か、ヒアリングシートの内容と照らし合わせて評価してください。
+            
+    2-2. コンテンツ分析： LP内のコンテンツ内容を分析し、ユーザーのニーズや課題に合致しているか、行動を促す要素が備わっているかを特定する。
+    * 2-2-1. ヘッドライン:
+        * AIによる分析:
+            * ヘッドラインの文字数、キーワード含有率: [AIが自動算出]
+            * ヘッドラインで用いられている心理効果: [AIが推測]
+        * 人間による評価 (AIがシミュレート):
+            * ヘッドラインは、ターゲット層の興味関心を引くものになっているか？
+            * ヘッドラインは、商品・サービスの価値を適切に表現しているか？
+            * ヘッドラインの課題と改善案を記入してください。
+    * 2-2-2. ボディコピー:
+        * AIによる分析:
+            * 各パートの文字数、キーワード含有率: [AIが自動算出]
+            * 各パートで活用されている心理効果: [AIが推測]
+        * 人間による評価 (AIがシミュレート):
+            * ボディコピーは、ターゲット層の課題やニーズに共感し、解決策を提示できているか？
+            * 商品・サービスの価値やベネフィットを具体的に説明できているか？
+            * アピールポイントを訴求できているか？
+            * 一貫性のあるストーリーが展開されているか？
+            * ボディコピーの課題と改善案を記入してください。
+    * 2-2-3. CTA (Content):
+        * AIによる分析:
+            * CTAボタンの文言: [LP Contentから抽出]
+        * 人間による評価 (AIがシミュレート):
+            * CTAは、行動喚起を促す表現になっているか？
+            * ユーザーにとって魅力的で、クリックしやすいものになっているか？
+            * CTAの課題と改善案を記入してください。
+    * 2-2-4. FAQ:
+        * AIによる分析:
+            * FAQの数、質問と回答の文字数: [LP Contentから推測]
+        * 人間による評価 (AIがシミュレート):
+            * FAQは、ユーザーの疑問や不安を解消できているか？
+            * 購入を後押しする内容になっているか？
+            * FAQの課題と改善案を記入してください。
+            
+    2-3. デザイン・レイアウト分析： (テキスト情報から推測できる範囲で分析)
+    * 2-3-1. ファーストビュー & 全体構成:
+        * 人間による評価 (AIがシミュレート):
+            * (テキスト情報から) 伝えたいメッセージが明確に伝わる構成になっているか？
+            * 情報の優先順位は適切か？
+            * 課題と改善案を記入してください。
+            
+    2-4. 市場価値分析： 競合との比較から、自社サービスの位置づけと優位性を評価する。
+    * 競合との差別化:
+        * 人間による評価 (AIがシミュレート):
+            * 競合と比較して、自社サービスの独自性や優位性は明確に打ち出されているか？ (ヒアリングシート情報に基づく)
+            * 他社との差別化ポイントは、ターゲットにとって魅力的か？
+            * 他社との比較、独自性に関する課題と改善案を記入してください。
+            
+    2-5. 流入経路分析：
+    * 2-5-1. 流入元 & キーワード:
+        * AIによる分析:
+            * ヒアリングシートから流入元・キーワード情報を抽出
+        * 人間による評価 (AIがシミュレート):
+            * 各流入元のユーザー属性やニーズは、LPのターゲット層と合致しているか？
+            * 流入キーワードは、LPの内容と合致しているか？
+            * 広告媒体とLPのターゲット層は一致しているか？
+            * 課題と改善案を記入してください。
+
+    原因の特定: 上記の分析結果に基づき、CVRが低い原因を、具体的かつ詳細に特定する。
+    
+    改善の方向性の提示: 特定された原因に基づき、具体的な改善の方向性を提示する。
+    
+    **Output Format:**
+    Generate the report strictly following the "Output Format" specified in the prompt below.
+    
+    ## LP現状分析レポート
+    
+    **基本情報**
+    ... (Fill in based on analysis)
+    
+    **現状分析**
+    ... (Follow the structure: 1. User Flow, 2. Content, 3. Design, 4. Market Value, 5. Traffic Sources, 6. Ad Analysis)
+    
+    **CVRが低い原因（結論）**
+    ...
+    
+    **改善の方向性**
+    ...
+    
+    **IMPORTANT: Output must be in Japanese.**
+    """
+    return _safe_generate(prompt)
