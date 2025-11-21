@@ -119,40 +119,28 @@ authenticator = stauth.Authenticate(
 )
 
 # Login Widget
-authenticator.login(location='main')
+# fields引数でラベルを日本語化
+authenticator.login(
+    location='main',
+    fields={'Form name': 'ログイン', 'Username': 'ユーザー名', 'Password': 'パスワード', 'Login': 'ログイン'}
+)
 
 authentication_status = st.session_state.get('authentication_status')
 name = st.session_state.get('name')
 username = st.session_state.get('username')
 
 if authentication_status is False:
-    st.error('Username/password is incorrect')
+    st.error('ユーザー名またはパスワードが間違っています')
 elif authentication_status is None:
-    st.warning('Please enter your username and password')
-
-# Registration Widget (Optional, in expander)
-if not authentication_status:
-    with st.expander("新規登録はこちら (Register)"):
-        try:
-            # Get preauthorized emails if they exist
-            pre_authorized_emails = config.get('preauthorized', {}).get('emails', [])
-            
-            # register_user returns (email, username, name) if successful, else (None, None, None)
-            email_reg, username_reg, name_reg = authenticator.register_user(pre_authorized=pre_authorized_emails)
-            if email_reg:
-                st.success('User registered successfully')
-                # Save config file with new user
-                with open(config_path, 'w') as file:
-                    yaml.dump(config, file, default_flow_style=False)
-        except Exception as e:
-            st.error(e)
+    st.warning('ユーザー名とパスワードを入力してください')
 
 if not authentication_status:
     st.stop()
 
 # Logout button in sidebar
-authenticator.logout(location='sidebar')
-st.sidebar.write(f'Welcome *{name}*')
+authenticator.logout(location='sidebar', key='logout_button')
+# ボタンのラベル変更は標準機能では難しいため、メッセージのみ日本語化
+st.sidebar.write(f'ようこそ *{name}* さん')
 
 # --- ページ遷移関数 ---
 def navigate_to(page_name):

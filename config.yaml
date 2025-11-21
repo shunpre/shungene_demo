@@ -1,15 +1,14 @@
 credentials:
   usernames:
-    admin:
-      email: admin@example.com
+    "000":
+      email: user@example.com
       failed_login_attempts: 0
       logged_in: False
-      name: Administrator
-      password: $2b$12$k3aiWk0fSf3M2Y.ho35aFuEWran5Yarr8ujI59Eq7d0tDeWCwS22K
+      name: ユーザー
+      password: $2b$12$4t6i9ftUNtQAhbl7ZTR1IuwuQ63gbTqRbdIuqAV5p.4Xv5go3gVe.
 cookie:
   expiry_days: 30
   key: random_signature_key
   name: random_cookie_name
 preauthorized:
-  emails:
-  - melsby@gmail.com
+  emails: []
