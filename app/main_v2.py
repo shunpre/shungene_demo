@@ -388,6 +388,22 @@ st.sidebar.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# --- AI Model Selection ---
+st.sidebar.markdown("##### AIモデル設定")
+model_options = {
+    "Gemini 3.0 Pro (Preview)": "gemini-3-pro-preview",
+    "Gemini 2.5 Pro": "gemini-2.5-pro"
+}
+selected_model_label = st.sidebar.selectbox(
+    "使用するAIモデル",
+    list(model_options.keys()),
+    index=1, # Default to 2.5 Pro
+    key="model_selector"
+)
+st.session_state.selected_gemini_model = model_options[selected_model_label]
+
+st.sidebar.markdown("---")
+
 scenario_options = ['好調', '普通', '不調']
 
 try:

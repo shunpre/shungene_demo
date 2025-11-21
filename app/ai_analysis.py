@@ -14,8 +14,9 @@ def get_gemini_model():
     
     try:
         genai.configure(api_key=api_key)
-        # Using gemini-pro for better compatibility
-        model = genai.GenerativeModel('gemini-pro')
+        # Get selected model from session state, default to gemini-2.5-pro
+        model_name = st.session_state.get("selected_gemini_model", "gemini-2.5-pro")
+        model = genai.GenerativeModel(model_name)
         return model
     except Exception as e:
         st.error(f"Failed to configure Gemini API: {e}")
