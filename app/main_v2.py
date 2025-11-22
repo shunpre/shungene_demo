@@ -373,14 +373,7 @@ st.sidebar.markdown("""
     """, unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-# --- 全ページ共通のガイドUI ---
-st.sidebar.markdown("##### ガイド")
-st.sidebar.markdown("""
-<div class="graph-description" style="font-size: 0.8rem; margin-bottom: 1rem;">
-想定CVRを設定し、シナリオを選択すると、ダミーデータが生成されます。<br>
-データ分析の学習にご活用ください。
-</div>
-""", unsafe_allow_html=True)
+
 
 # --- AI Model Selection ---
 st.sidebar.markdown("##### AIモデル設定")
@@ -495,7 +488,14 @@ def assign_channel(row):
 # --- 分析対象のDataFrameを決定 ---
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
 if "generated_data" not in st.session_state or st.session_state.generated_data.empty:
-    st.info("分析を開始するには、左側のサイドバーにある「ダミーデータを生成」ボタンを押してください。")
+    st.info("""
+    **分析を開始するには、左側のサイドバーにある「ダミーデータを生成」ボタンを押してください。**
+
+    ---
+    **ガイド**
+    想定CVRを設定し、シナリオを選択すると、ダミーデータが生成されます。
+    データ分析の学習にご活用ください。
+    """)
     st.stop()
 else:
     df = st.session_state.generated_data
