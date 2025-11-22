@@ -381,9 +381,9 @@ st.sidebar.markdown("""
 データ分析の学習にご活用ください。<br><br>
 <b>シナリオの目安</b>
 <ul>
-  <li>好調: 想定CVR × 1.3</li>
-  <li>普通: 想定CVR × 1.0</li>
-  <li>不調: 想定CVR × 0.8</li>
+  <li>好調（高エンゲージメント）: 想定CVR × 1.3</li>
+  <li>標準（ベースライン）: 想定CVR × 1.0</li>
+  <li>不調（離脱率高・モバイル課題）: 想定CVR × 0.8</li>
 </ul>
 </div>
 """, unsafe_allow_html=True)
