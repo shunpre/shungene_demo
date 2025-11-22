@@ -421,8 +421,8 @@ target_cvr_input = st.sidebar.number_input(
 )
 
 # シナリオ選択
-scenario_options = ["穴のあいたバケツ", "コアファン", "スマホ苦手", "標準"]
-selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=0, key="scenario_selector_main")
+scenario_options = ["不調（離脱率高）", "好調（高エンゲージメント）", "不調（モバイル課題）", "標準（ベースライン）"]
+selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=3, key="scenario_selector_main")
 
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{selected_scenario}」シナリオのデータを生成中..."):

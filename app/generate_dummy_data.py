@@ -10,15 +10,16 @@ import random
 from scipy.stats import gamma, lognorm, norm
 
 # --- Scenario Configurations ---
+# --- Scenario Configurations ---
 SCENARIO_CONFIGS = {
-    '穴のあいたバケツ': { # Leaky Bucket
-        'description': '流入多・離脱多（穴のあいたバケツ）',
+    '不調（離脱率高）': { # Old: Leaky Bucket
+        'description': '流入多・離脱多（広告ロス多発）',
         'num_sessions_per_day_range': (800, 1200),
         'fv_exit_rate': 0.70, # FV離脱率 70%
         'transition_mean': 0.75, # ページ遷移率 低い
         'transition_sd': 0.05,
         'cta_click_rate_base': 0.05, # CTAクリック率 低い
-        'base_session_cvr': 0.005, # CVR 0.5%
+        'cvr_multiplier': 0.8, # 想定CVR x 0.8 (不調)
         'stay_time_mu_base': 1.5, # ln(seconds). e^1.5 ≈ 4.5秒 (サクサク離脱)
         'stay_time_sigma': 0.8, # ばらつき大
         'backflow_base': 0.02, # 戻る人は少ない
@@ -26,14 +27,14 @@ SCENARIO_CONFIGS = {
         'device_weights': [0.9, 0.1], # ほぼスマホ
         'num_pages_dist': lambda: random.randint(8, 12), # ページ数変動
     },
-    'コアファン': { # Niche Fanbase
-        'description': '流入少・高CVR（コアファン）',
+    '好調（高エンゲージメント）': { # Old: Niche Fanbase
+        'description': '流入少・高CVR（コアファン層）',
         'num_sessions_per_day_range': (50, 100),
         'fv_exit_rate': 0.15, # FV離脱率 15%
         'transition_mean': 0.98, # ほとんど次へ進む
         'transition_sd': 0.01,
         'cta_click_rate_base': 0.25, # CTAクリック率 高い
-        'base_session_cvr': 0.15, # CVR 15%
+        'cvr_multiplier': 1.3, # 想定CVR x 1.3 (好調)
         'stay_time_mu_base': 2.5, # ln(seconds). e^2.5 ≈ 12秒 (じっくり読む)
         'stay_time_sigma': 0.4, # ばらつき小
         'backflow_base': 0.15, # 何度も読み返す
@@ -41,14 +42,14 @@ SCENARIO_CONFIGS = {
         'device_weights': [0.6, 0.3, 0.1],
         'num_pages_dist': lambda: random.randint(15, 20), # 情報量多い
     },
-    'スマホ苦手': { # Mobile Struggle
+    '不調（モバイル課題）': { # Old: Mobile Struggle
         'description': 'スマホだけ不調（レスポンシブ課題）',
         'num_sessions_per_day_range': (400, 600),
         'fv_exit_rate': 0.40,
         'transition_mean': 0.90,
         'transition_sd': 0.03,
         'cta_click_rate_base': 0.10,
-        'base_session_cvr': 0.03,
+        'cvr_multiplier': 0.8, # 想定CVR x 0.8 (不調)
         'stay_time_mu_base': 2.0, # e^2.0 ≈ 7.4秒
         'stay_time_sigma': 0.6,
         'backflow_base': 0.05,
@@ -62,14 +63,14 @@ SCENARIO_CONFIGS = {
             'tablet': {'cvr': 1.0, 'stay': 1.0, 'load': 1.0}
         }
     },
-    '標準': { # Standard
+    '標準（ベースライン）': { # Old: Standard
         'description': '標準的なパフォーマンス',
         'num_sessions_per_day_range': (300, 500),
         'fv_exit_rate': 0.35,
         'transition_mean': 0.92,
         'transition_sd': 0.03,
         'cta_click_rate_base': 0.12,
-        'base_session_cvr': 0.04,
+        'cvr_multiplier': 1.0, # 想定CVR x 1.0 (普通)
         'stay_time_mu_base': 1.8, # e^1.8 ≈ 6秒
         'stay_time_sigma': 0.6,
         'backflow_base': 0.05,
@@ -109,14 +110,17 @@ DEFAULT_CONFIG = {
     'info_jump_backflow_bonus': 0.6,
 }
 
-def generate_dummy_data(scenario: str = '標準', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04):
+def generate_dummy_data(scenario: str = '標準（ベースライン）', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04):
     """
     リアルなスワイプLPイベントデータを生成
     """
     # シナリオ設定のロードとマージ
-    scenario_config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['標準'])
+    scenario_config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['標準（ベースライン）'])
     config = DEFAULT_CONFIG.copy()
     config.update(scenario_config)
+    
+    # CVR設定: 想定CVR x シナリオ倍率
+    config['base_session_cvr'] = target_cvr * config.get('cvr_multiplier', 1.0)
 
     # 基準日時
     end_date = datetime.now()
