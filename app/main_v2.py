@@ -373,18 +373,12 @@ st.sidebar.markdown("""
     """, unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-# --- 全ページ共通の学習用機能UI ---
-st.sidebar.markdown("##### 学習用機能")
+# --- 全ページ共通のガイドUI ---
+st.sidebar.markdown("##### ガイド")
 st.sidebar.markdown("""
 <div class="graph-description" style="font-size: 0.8rem; margin-bottom: 1rem;">
 想定CVRを設定し、シナリオを選択すると、ダミーデータが生成されます。<br>
-データ分析の学習にご活用ください。<br><br>
-<b>シナリオの目安</b>
-<ul>
-  <li>好調（高エンゲージメント）: 想定CVR × 1.3</li>
-  <li>標準（ベースライン）: 想定CVR × 1.0</li>
-  <li>不調（離脱率高・モバイル課題）: 想定CVR × 0.8</li>
-</ul>
+データ分析の学習にご活用ください。
 </div>
 """, unsafe_allow_html=True)
 
