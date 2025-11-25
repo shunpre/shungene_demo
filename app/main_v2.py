@@ -18,6 +18,7 @@ if project_root not in sys.path:
 
 import streamlit as st
 import pandas as pd
+import math
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
@@ -450,15 +451,17 @@ if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="pr
                         # Update session state with AI suggestions
                         params = analysis_result.get("scenario_params", {})
                         st.session_state.custom_cvr_multiplier = float(params.get("cvr_multiplier", 1.0))
-                        st.session_state.custom_stay_time_mu = float(params.get("stay_time_mu_base", 2.0))
+                        st.session_state.custom_stay_time_mu = float(params.get("stay_time_mu_base", 3.4))
                         st.session_state.custom_fv_exit_rate = float(params.get("fv_exit_rate", 0.4))
                         
-                        # Try to parse estimated CVR to set target_cvr
+                        # Try to parse estimated CVR to set target_cvr and baseline_cvr
                         est_cvr_str = analysis_result.get('estimated_cvr_range', '3.0')
                         # Extract the first float found in the string
                         match_cvr = re.search(r"(\d+(\.\d+)?)", est_cvr_str)
                         if match_cvr:
-                            st.session_state.target_cvr = float(match_cvr.group(1))
+                            val = float(match_cvr.group(1))
+                            st.session_state.target_cvr = val
+                            st.session_state.baseline_cvr = val # Set baseline CVR from AI result
                     else:
                         raise ValueError("JSON format not found in response")
                     
@@ -485,11 +488,13 @@ st.sidebar.markdown("##### シミュレーション設定")
 # Custom Scenario Parameters (Always visible)
 # Initialize session state if not set
 if "custom_stay_time_mu" not in st.session_state:
-    st.session_state.custom_stay_time_mu = 2.0
+    st.session_state.custom_stay_time_mu = 3.4
 if "custom_fv_exit_rate" not in st.session_state:
     st.session_state.custom_fv_exit_rate = 0.4
 if "target_cvr" not in st.session_state:
     st.session_state.target_cvr = 3.0
+if "baseline_cvr" not in st.session_state:
+    st.session_state.baseline_cvr = 3.0
 
 # Callback function to update related metrics based on Target CVR
 def update_related_metrics():
@@ -499,21 +504,38 @@ def update_related_metrics():
     """
     # Use the shared state key 'target_cvr'
     new_cvr = st.session_state.target_cvr
+    # Get baseline CVR (default to 3.0 if not set)
+    baseline = st.session_state.get('baseline_cvr', 3.0)
     
-    # 1. 滞在時間係数の計算 (CVR 3.0% -> 2.0 を基準に線形スケーリング)
-    # CVR 0.1% -> ~1.0, CVR 10.0% -> ~4.3 (上限4.0でクリップ)
-    new_stay_mu = 1.0 + (new_cvr / 3.0) * 1.0
-    new_stay_mu = max(1.0, min(4.0, new_stay_mu))
+    # Calculate ratio of Target CVR to Baseline CVR
+    # If Target CVR == Baseline CVR, ratio is 1.0 -> Standard metrics
+    if baseline > 0:
+        ratio = new_cvr / baseline
+    else:
+        ratio = 1.0 # Fallback to avoid division by zero
+
+    # 1. 滞在時間係数の計算
+    # 基準値(ratio=1.0) -> 30秒 (log(30) ≈ 3.4)
+    # ratio > 1.0 (Target > Baseline) -> Longer stay time
+    target_seconds = 30.0 * ratio
+    # Ensure target_seconds is positive to avoid math domain error
+    target_seconds = max(1.0, target_seconds)
+    new_stay_mu = math.log(target_seconds)
+    new_stay_mu = max(1.5, min(5.5, new_stay_mu))
     st.session_state.custom_stay_time_mu = new_stay_mu
     # Sync widget states
     st.session_state.custom_stay_time_mu_slider = new_stay_mu
     st.session_state.custom_stay_time_mu_input = new_stay_mu
     
-    # 2. FV離脱率の計算 (CVR 3.0% -> 0.4 を基準に逆相関)
-    # CVRが高くなるほど離脱率は下がる
-    # CVR 0.1% -> ~0.7, CVR 10.0% -> ~ -0.3 (下限0.1でクリップ)
-    new_fv_exit = max(0.1, 0.7 - (new_cvr / 10.0) * 1.0)
-    new_fv_exit = max(0.1, min(0.9, new_fv_exit))
+    # 2. FV離脱率の計算
+    # 基準値(ratio=1.0) -> 0.2 (20%)
+    # ratio > 1.0 (Target > Baseline) -> Lower exit rate
+    if ratio > 0:
+        new_fv_exit = 0.2 / ratio
+    else:
+        new_fv_exit = 0.2 # Fallback
+    # Lower limit 0.05 (5%), Upper limit 0.9 (90%)
+    new_fv_exit = max(0.05, min(0.9, new_fv_exit))
     st.session_state.custom_fv_exit_rate = new_fv_exit
     # Sync widget states
     st.session_state.custom_fv_exit_rate_slider = new_fv_exit
@@ -555,7 +577,7 @@ def slider_and_input(label, min_val, max_val, default_val, step, state_key, fmt=
             label,
             min_value=min_val,
             max_value=max_val,
-            value=st.session_state[state_key], # Initial value only used if key not in state, but key is in state
+            # value argument removed to avoid Streamlit warning
             step=step,
             format=fmt,
             key=f"{state_key}_slider",
@@ -567,7 +589,7 @@ def slider_and_input(label, min_val, max_val, default_val, step, state_key, fmt=
             "Value",
             min_value=min_val,
             max_value=max_val,
-            value=st.session_state[state_key],
+            # value argument removed to avoid Streamlit warning
             step=step,
             format=fmt,
             key=f"{state_key}_input",
@@ -588,13 +610,13 @@ target_cvr_input = slider_and_input(
 
 custom_stay_mu = slider_and_input(
     "滞在時間係数",
-    1.0, 4.0, 2.0, 0.1,
+    1.5, 5.5, 3.4, 0.1,
     "custom_stay_time_mu", "%.1f"
 )
 
 custom_fv_exit = slider_and_input(
     "FV離脱率",
-    0.1, 0.9, 0.4, 0.05,
+    0.05, 0.9, 0.4, 0.01, # Min 0.05, Step 0.01
     "custom_fv_exit_rate", "%.2f"
 )
 
@@ -618,7 +640,7 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
             'cta_click_rate_base': 0.10,
             'cvr_multiplier': 1.0, # Fixed to 1.0 as requested (User controls CVR via Target CVR slider)
             'stay_time_mu_base': custom_stay_mu,
-            'stay_time_sigma': 0.6,
+            'stay_time_sigma': 0.8, # Increased variance (0.6 -> 0.8)
             'backflow_base': 0.05,
             'device_dist': ['mobile', 'desktop'],
             'device_weights': [0.7, 0.3],
