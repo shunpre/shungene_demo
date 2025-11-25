@@ -749,3 +749,63 @@ def analyze_improvement_proposal_expert(lp_text_content, kpi_data, target_info):
     * **Output must be in Japanese.**
     """
     return _safe_generate(prompt)
+
+def analyze_product_characteristics(product_description):
+    """
+    Analyze product description to estimate CVR, target audience, and bottlenecks.
+    """
+    prompt = f"""
+    You are an expert Digital Marketing Strategist.
+    Analyze the following product/service description to estimate key performance metrics for a Landing Page.
+
+    Product Description:
+    {product_description}
+
+    Task:
+    1.  **Target Audience**: Define the primary demographic (Age, Gender) and their motivation.
+    2.  **Estimated CVR**: Estimate a realistic Conversion Rate (CVR) range for this industry/product type.
+    3.  **Typical Bottlenecks**: Identify 2 common reasons why users might drop off from this type of LP.
+    4.  **Scenario Parameters**: Suggest parameters for a simulation scenario.
+        *   `cvr_multiplier`: 0.8 (Hard) to 1.5 (Easy)
+        *   `stay_time_mu_base`: 1.5 (Short) to 3.5 (Long)
+        *   `fv_exit_rate`: 0.2 (Low) to 0.7 (High)
+
+    Output Format:
+    JSON format ONLY. No markdown formatting.
+    {{
+        "target_audience": "...",
+        "estimated_cvr_range": "...",
+        "bottlenecks": ["...", "..."],
+        "scenario_params": {{
+            "cvr_multiplier": float,
+            "stay_time_mu_base": float,
+            "fv_exit_rate": float
+        }},
+        "reasoning": "Brief explanation in Japanese"
+    }}
+    """
+    return _safe_generate(prompt)
+
+def chat_with_data(user_query, dataframe_summary):
+    """
+    Answer user questions based on the provided dataframe summary.
+    """
+    prompt = f"""
+    You are an expert Data Analyst assistant.
+    Answer the user's question based on the provided data summary.
+
+    Data Summary:
+    {dataframe_summary}
+
+    User Question:
+    {user_query}
+
+    Instructions:
+    1.  Answer in Japanese.
+    2.  Be concise and data-driven.
+    3.  If the answer is not in the data, say so politely.
+    4.  Use a professional but helpful tone.
+
+    Answer:
+    """
+    return _safe_generate(prompt)

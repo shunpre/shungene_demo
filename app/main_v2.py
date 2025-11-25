@@ -391,12 +391,61 @@ st.session_state.selected_gemini_model = model_options[selected_model_label]
 
 st.sidebar.markdown("---")
 
-scenario_options = ['好調', '普通', '不調']
+# --- Product Analysis & Scenario Customizer ---
+st.sidebar.markdown("##### 商材・サービス設定")
+product_description = st.sidebar.text_area(
+    "商材・サービス概要",
+    placeholder="例: 40代女性向けのエイジングケア美容液。定期購入がメイン。",
+    key="product_description_input"
+)
 
-try:
-    default_scenario_index = scenario_options.index(st.session_state.data_scenario)
-except (AttributeError, ValueError):
-    default_scenario_index = 1
+if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="secondary", use_container_width=True):
+    if product_description:
+        with st.spinner("商材特性を分析中..."):
+            analysis_result_json = ai_analysis.analyze_product_characteristics(product_description)
+            try:
+                # Clean up JSON string if necessary (remove markdown code blocks)
+                analysis_result_json = analysis_result_json.replace("```json", "").replace("```", "").strip()
+                analysis_result = json.loads(analysis_result_json)
+                
+                st.session_state.product_analysis = analysis_result
+                st.sidebar.success("分析完了！")
+                
+                # Update session state with AI suggestions
+                params = analysis_result.get("scenario_params", {})
+                st.session_state.custom_cvr_multiplier = params.get("cvr_multiplier", 1.0)
+                st.session_state.custom_stay_time_mu = params.get("stay_time_mu_base", 2.0)
+                st.session_state.custom_fv_exit_rate = params.get("fv_exit_rate", 0.4)
+                
+            except json.JSONDecodeError:
+                st.sidebar.error("AI分析結果の解析に失敗しました。")
+            except Exception as e:
+                st.sidebar.error(f"エラーが発生しました: {e}")
+    else:
+        st.sidebar.warning("商材概要を入力してください。")
+
+# Display Analysis Result if available
+if "product_analysis" in st.session_state:
+    result = st.session_state.product_analysis
+    st.sidebar.info(f"""
+    **分析結果**:
+    *   **ターゲット**: {result.get('target_audience', 'N/A')}
+    *   **想定CVR**: {result.get('estimated_cvr_range', 'N/A')}
+    *   **ボトルネック**: {', '.join(result.get('bottlenecks', []))}
+    """)
+
+st.sidebar.markdown("---")
+
+# シナリオ選択
+scenario_options = ["不調（離脱率高）", "好調（高エンゲージメント）", "不調（モバイル課題）", "標準（ベースライン）", "カスタム（AI分析反映）"]
+selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=3, key="scenario_selector_main")
+
+# Custom Scenario Parameters (only visible if Custom is selected)
+if selected_scenario == "カスタム（AI分析反映）":
+    st.sidebar.markdown("###### カスタムパラメータ")
+    custom_cvr_mult = st.sidebar.slider("CVR倍率", 0.5, 2.0, st.session_state.get("custom_cvr_multiplier", 1.0), 0.1)
+    custom_stay_mu = st.sidebar.slider("滞在時間係数", 1.0, 4.0, st.session_state.get("custom_stay_time_mu", 2.0), 0.1)
+    custom_fv_exit = st.sidebar.slider("FV離脱率", 0.1, 0.9, st.session_state.get("custom_fv_exit_rate", 0.4), 0.05)
 
 target_cvr_input = st.sidebar.number_input(
     "想定CVR (%)",
@@ -407,15 +456,40 @@ target_cvr_input = st.sidebar.number_input(
     format="%.2f"
 )
 
-# シナリオ選択
-scenario_options = ["不調（離脱率高）", "好調（高エンゲージメント）", "不調（モバイル課題）", "標準（ベースライン）"]
-selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=3, key="scenario_selector_main")
-
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"「{selected_scenario}」シナリオのデータを生成中..."):
         # 新しいダミーデータ生成関数を呼び出す
-        # 日数は30日で固定
         num_days_gen = 30
+        
+        # Handle Custom Scenario
+        if selected_scenario == "カスタム（AI分析反映）":
+            # We need to pass these custom parameters to generate_dummy_data
+            # Since generate_dummy_data takes a scenario string, we might need to modify it 
+            # or pass a config dict. For now, let's use a hack: modify the SCENARIO_CONFIGS in memory 
+            # or pass a special argument. 
+            # Better approach: Update generate_dummy_data to accept overrides.
+            # For this demo, I will modify generate_dummy_data to accept a 'custom_config' argument 
+            # but since I can't easily change the signature without breaking imports, 
+            # I will add a temporary 'Custom' entry to SCENARIO_CONFIGS in generate_dummy_data.py
+            # Wait, I can't modify the imported module's global variable easily from here in a clean way.
+            # I will modify generate_dummy_data.py to export SCENARIO_CONFIGS so I can update it here.
+            from app.generate_dummy_data import SCENARIO_CONFIGS
+            SCENARIO_CONFIGS['カスタム（AI分析反映）'] = {
+                'description': 'AI分析に基づくカスタム設定',
+                'num_sessions_per_day_range': (300, 500),
+                'fv_exit_rate': custom_fv_exit,
+                'transition_mean': 0.90,
+                'transition_sd': 0.05,
+                'bottleneck_pages': {3: 0.3}, # Default bottleneck
+                'cta_click_rate_base': 0.10,
+                'cvr_multiplier': custom_cvr_mult,
+                'stay_time_mu_base': custom_stay_mu,
+                'stay_time_sigma': 0.6,
+                'backflow_base': 0.05,
+                'device_dist': ['mobile', 'desktop'],
+                'device_weights': [0.7, 0.3],
+                'num_pages_dist': lambda: random.randint(10, 15),
+            }
         
         st.session_state.generated_data = generate_dummy_data(
             scenario=selected_scenario,
@@ -424,6 +498,7 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
         )
         st.session_state.data_scenario = selected_scenario # 現在のシナリオを保存
         st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
+    
     # ページリダイレクトを削除し、現在のページを維持する
     pass
 
@@ -502,7 +577,7 @@ else:
 menu_groups = {
     "基本分析": ["全体サマリー", "リアルタイムビュー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
-    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析"],
+    "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析", "AIアナリスト（チャット）"],
     "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
 }
 
@@ -3614,109 +3689,126 @@ elif selected_analysis == "時系列分析":
 # タブ7: リアルタイム分析
 elif selected_analysis == "リアルタイムビュー":
 
-    st.markdown('<div class="sub-header">リアルタイムビュー</div>', unsafe_allow_html=True)
-    st.markdown('<div class="graph-description">サイト全体の直近1時間の活動状況をリアルタイムで確認できます。この分析は上部のフィルター設定の影響を受けません。</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">リアルタイムビュー (Live)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">現在サイトに訪問しているユーザーの活動をリアルタイムでモニタリングします。<br>※デモモード: 過去のデータをリアルタイム風に再生します。</div>', unsafe_allow_html=True)
     
-    # 直近1時間のデータをフィルタリング
-    one_hour_ago = df['event_timestamp'].max() - timedelta(hours=1)
-    realtime_df = df[df['event_timestamp'] >= one_hour_ago]
+    # ストリーミング制御
+    if 'streaming_active' not in st.session_state:
+        st.session_state.streaming_active = False
     
-    if len(realtime_df) > 0:
-        # KPI計算
-        rt_sessions = realtime_df['session_id'].nunique()
-        rt_avg_pages = realtime_df.groupby('session_id')['max_page_reached'].max().mean()
-        rt_avg_stay = realtime_df['stay_ms'].mean() / 1000 if not realtime_df['stay_ms'].isnull().all() else 0
-        rt_fv_retention = (realtime_df[realtime_df['max_page_reached'] >= 2]['session_id'].nunique() / rt_sessions * 100) if rt_sessions > 0 else 0
-        rt_avg_load = realtime_df['load_time_ms'].mean()
+    col_control, col_status = st.columns([1, 4])
+    with col_control:
+        if not st.session_state.streaming_active:
+            if st.button("モニタリング開始", type="primary", key="start_stream"):
+                st.session_state.streaming_active = True
+                st.rerun()
+        else:
+            if st.button("停止", type="secondary", key="stop_stream"):
+                st.session_state.streaming_active = False
+                st.rerun()
+    
+    with col_status:
+        if st.session_state.streaming_active:
+            st.success("● Live Monitoring Active")
+        else:
+            st.info("モニタリング停止中")
 
-        # KPI表示
-        st.markdown("#### 直近1時間のモニタリング")
-        st.markdown("直近1時間で急な変化や異常がないかを確認します")
-        kpi_cols = st.columns(5)
-        kpi_cols[0].metric("セッション数", f"{rt_sessions:,}")
-        kpi_cols[1].metric("平均到達ページ数", f"{rt_avg_pages:.1f}")
-        kpi_cols[2].metric("平均滞在時間", f"{rt_avg_stay:.1f}秒")
-        kpi_cols[3].metric("FV残存率", f"{rt_fv_retention:.1f}%")
-        kpi_cols[4].metric("平均読込時間", f"{rt_avg_load:.0f}ms")
+    # プレースホルダーの作成
+    kpi_placeholder = st.empty()
+    chart_placeholder = st.empty()
+    log_placeholder = st.empty()
 
-        st.markdown("---")
-
-        # 分単位の推移
-        st.markdown("#### 直近1時間のセッション数推移（10分単位）")
-        st.markdown("直近1時間のセッション数を、10分ごとに集計して表示します")
+    if st.session_state.streaming_active:
+        # ストリーミングループ
+        # デモ用に直近のデータをベースに少しずつ追加していく
+        base_time = datetime.now()
         
-        realtime_df['minute_bin'] = realtime_df['event_timestamp'].dt.floor('10T')
-        rt_trend = realtime_df.groupby('minute_bin')['session_id'].nunique().reset_index()
-        rt_trend.columns = ['時刻', 'セッション数']
+        # 初期データ（過去1時間分）
+        current_df = df[df['event_timestamp'] >= (base_time - timedelta(hours=1))].copy()
+        
+        # ループ実行（最大100回または停止されるまで）
+        for i in range(100):
+            if not st.session_state.streaming_active:
+                break
+            
+            # 擬似的な新着データ生成
+            # ランダムに1〜5件のイベントを追加
+            new_events_count = random.randint(1, 5)
+            new_data = []
+            for _ in range(new_events_count):
+                # ランダムなイベントを生成
+                evt_type = random.choice(['page_view', 'scroll', 'click', 'conversion'])
+                if evt_type == 'conversion':
+                    if random.random() > 0.1: # CVはレアにする
+                        evt_type = 'page_view'
+                
+                new_event = {
+                    'event_timestamp': base_time + timedelta(seconds=i*2), # 時間を進める
+                    'session_id': f"live_user_{random.randint(1000, 1050)}",
+                    'event_name': evt_type,
+                    'page_location': 'https://shungene.lm-c.jp/tst08/tst08.html',
+                    'stay_ms': random.randint(1000, 5000),
+                    'max_page_reached': random.randint(1, 10),
+                    'load_time_ms': random.randint(100, 500),
+                    'cv_type': 'primary' if evt_type == 'conversion' else None
+                }
+                new_data.append(new_event)
+            
+            new_df = pd.DataFrame(new_data)
+            new_df['event_timestamp'] = pd.to_datetime(new_df['event_timestamp'])
+            
+            # データフレームに追加
+            current_df = pd.concat([current_df, new_df], ignore_index=True)
+            
+            # 直近1時間に絞る
+            display_df = current_df[current_df['event_timestamp'] >= (current_df['event_timestamp'].max() - timedelta(hours=1))]
+            
+            # KPI再計算
+            rt_sessions = display_df['session_id'].nunique()
+            rt_active_users = display_df[display_df['event_timestamp'] >= (display_df['event_timestamp'].max() - timedelta(minutes=5))]['session_id'].nunique()
+            rt_cvs = display_df[display_df['event_name'] == 'conversion'].shape[0]
+            rt_avg_stay = display_df['stay_ms'].mean() / 1000 if len(display_df) > 0 else 0
+            
+            # KPI更新
+            with kpi_placeholder.container():
+                cols = st.columns(4)
+                cols[0].metric("現在のアクティブユーザー", f"{rt_active_users}人", delta=random.choice([-1, 0, 1, 2]))
+                cols[1].metric("直近1時間のセッション", f"{rt_sessions}人")
+                cols[2].metric("直近1時間のCV数", f"{rt_cvs}件", delta_color="inverse")
+                cols[3].metric("平均滞在時間", f"{rt_avg_stay:.1f}秒")
 
-        fig = px.area(rt_trend, x='時刻', y='セッション数', markers=True)
-        fig.update_traces(hovertemplate='時刻: %{x}<br>セッション数: %{y:,}<extra></extra>')
-        fig.update_layout(height=400, yaxis_title='セッション数', dragmode=False)
-        st.plotly_chart(fig, use_container_width=True, key='plotly_chart_23')
+            # グラフ更新
+            with chart_placeholder.container():
+                display_df['minute_bin'] = display_df['event_timestamp'].dt.floor('1T') # 1分単位
+                trend = display_df.groupby('minute_bin')['session_id'].count().reset_index() # イベント数
+                trend.columns = ['時刻', 'アクティビティ']
+                
+                fig = px.bar(trend, x='時刻', y='アクティビティ', title="リアルタイム・アクティビティ推移")
+                fig.update_layout(height=350)
+                st.plotly_chart(fig, use_container_width=True, key=f"rt_chart_{i}")
+            
+            # ログ更新
+            with log_placeholder.container():
+                st.markdown("##### 最新のアクティビティ")
+                for _, row in new_df.iterrows():
+                    icon = "🟢" if row['event_name'] == 'page_view' else "🔵" if row['event_name'] == 'scroll' else "👆" if row['event_name'] == 'click' else "🎉"
+                    st.text(f"{row['event_timestamp'].strftime('%H:%M:%S')} {icon} {row['session_id']} performed {row['event_name']}")
+            
+            time.sleep(1.5) # 更新間隔
     else:
-        st.info("直近1時間のデータがありません")
-
-    st.markdown("---")
-
-    # --- AI分析と考察 ---
-    st.markdown("### AIによる分析と考察")
-    st.markdown('<div class="graph-description">リアルタイムのデータ変動を監視し、異常検知や突発的な機会の発見をサポートします。</div>', unsafe_allow_html=True)
-
-    # AI分析の表示状態を管理
-    if 'realtime_ai_open' not in st.session_state:
-        st.session_state.realtime_ai_open = False
-
-    if st.button("AI分析を実行", key="realtime_ai_btn", type="primary", use_container_width=True):
-        st.session_state.realtime_ai_open = True
-
-    if st.session_state.realtime_ai_open:
-        with st.container():
-            with st.spinner("AIがリアルタイムデータを分析中..."):
-                st.markdown("#### 1. 現状の評価")
-                st.info("""
-                リアルタイムビューでは、直近1時間のサイト活動を監視しています。セッション数が通常時と比較して急増または急減していないかを確認することが重要です。
-                - **セッション数の急増**: メディア掲載やインフルエンサーによる紹介など、外部からの突発的な流入の可能性があります。
-                - **セッション数の急減**: サイトの障害や広告配信の停止など、何らかの問題が発生している可能性があります。
-                """)
-
-                st.markdown("#### 2. 今後のアクション")
-                st.warning("""
-                - **機会の活用**: セッション数が急増している場合、その原因を特定し、SNSで言及を広めたり、関連コンテンツをトップに表示するなどして、機会を最大化しましょう。
-                - **問題の早期発見**: セッション数がゼロに近い、または急減している場合は、サイトが正常に表示されるか、広告キャンペーンが正しく配信されているかを直ちに確認してください。
-                """)
-            if st.button("AI分析を閉じる", key="realtime_ai_close"):
-                st.session_state.realtime_ai_open = False
-
-    # --- よくある質問 ---
-    st.markdown("#### このページの分析について質問する")
-    if 'realtime_faq_toggle' not in st.session_state:
-        st.session_state.realtime_faq_toggle = {1: False, 2: False, 3: False, 4: False}
-
-    faq_cols = st.columns(2)
-    with faq_cols[0]:
-        if st.button("セッション数が急に増えたらどうする？", key="faq_realtime_1", use_container_width=True):
-            st.session_state.realtime_faq_toggle[1] = not st.session_state.realtime_faq_toggle[1]
-            st.session_state.realtime_faq_toggle[2], st.session_state.realtime_faq_toggle[3], st.session_state.realtime_faq_toggle[4] = False, False, False
-        if st.session_state.realtime_faq_toggle[1]:
-            st.info("まず流入元を確認しましょう。SNSでの拡散やメディア掲載が原因であれば、その機会を最大化するために公式アカウントで言及したり、関連キャンペーンを実施するのが有効です。")
+        # 停止中の表示
+        st.info("「モニタリング開始」ボタンを押すと、リアルタイムデモが始まります。")
         
-        if st.button("このビューをどう活用する？", key="faq_realtime_3", use_container_width=True):
-            st.session_state.realtime_faq_toggle[3] = not st.session_state.realtime_faq_toggle[3]
-            st.session_state.realtime_faq_toggle[1], st.session_state.realtime_faq_toggle[2], st.session_state.realtime_faq_toggle[4] = False, False, False
-        if st.session_state.realtime_faq_toggle[3]:
-            st.info("主に「異常検知」と「機会発見」のために使います。広告キャンペーン開始直後の効果測定や、サーバーダウンなどの障害の早期発見に役立ちます。")
-    with faq_cols[1]:
-        if st.button("セッション数がゼロになったら？", key="faq_realtime_2", use_container_width=True):
-            st.session_state.realtime_faq_toggle[2] = not st.session_state.realtime_faq_toggle[2]
-            st.session_state.realtime_faq_toggle[1], st.session_state.realtime_faq_toggle[3], st.session_state.realtime_faq_toggle[4] = False, False, False
-        if st.session_state.realtime_faq_toggle[2]:
-            st.warning("サイトに重大な問題が発生している可能性があります。すぐにウェブサイトが正常に表示されるか、広告配信が停止していないか、ドメインやサーバーに問題がないかを確認してください。")
+        # 静的データの表示（プレビュー）
+        one_hour_ago = df['event_timestamp'].max() - timedelta(hours=1)
+        static_df = df[df['event_timestamp'] >= one_hour_ago]
         
-        if st.button("更新頻度はどのくらい？", key="faq_realtime_4", use_container_width=True):
-            st.session_state.realtime_faq_toggle[4] = not st.session_state.realtime_faq_toggle[4]
-            st.session_state.realtime_faq_toggle[1], st.session_state.realtime_faq_toggle[2], st.session_state.realtime_faq_toggle[3] = False, False, False
-        if st.session_state.realtime_faq_toggle[4]:
-            st.info("このビューのデータは、数分から数十分程度の遅延で更新されます（実際の更新頻度はデータソースの仕様に依存します）。常に最新の状況を反映するものではない点にご注意ください。")
+        cols = st.columns(4)
+        cols[0].metric("現在のアクティブユーザー", "-")
+        cols[1].metric("直近1時間のセッション", f"{static_df['session_id'].nunique()}")
+        cols[2].metric("直近1時間のCV数", f"{static_df[static_df['cv_type'].notna()]['session_id'].nunique()}")
+        cols[3].metric("平均滞在時間", f"{static_df['stay_ms'].mean()/1000:.1f}秒")
+
 
 # タブ8: カスタムオーディエンス
 elif selected_analysis == "デモグラフィック情報":
@@ -5256,6 +5348,61 @@ elif selected_analysis == "瞬フォーム分析":
         if st.session_state.shun_form_faq_toggle[4]:
             st.info("「離脱防止POPから再開率」の指標で効果を測定できます。この数値が高い（例: 89.0%）場合、POPが表示されることで多くのユーザーがフォーム入力に復帰しており、効果的であると言えます。")
 
+
+# タブ9: AIアナリスト（チャット）
+elif selected_analysis == "AIアナリスト（チャット）":
+    st.markdown('<div class="sub-header">AIアナリスト（チャット）</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">AIアナリストと対話しながら、データの深掘りや要因分析を行えます。</div>', unsafe_allow_html=True)
+
+    # チャット履歴の初期化
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "こんにちは！私はAIアナリストです。現在のデータについて何でも聞いてください。\n例：「昨日のCVRが低かった原因は？」「スマホユーザーの傾向は？」"}
+        ]
+
+    # チャット履歴の表示
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # ユーザー入力
+    if prompt := st.chat_input("質問を入力してください..."):
+        # ユーザーメッセージを表示
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # AI応答生成
+        with st.chat_message("assistant"):
+            with st.spinner("データを分析中..."):
+                # コンテキストデータの作成（現在のフィルター適用済みデータを使用）
+                # データ量が多すぎるとエラーになるため、サマリーを作成
+                
+                # 1. 基本KPI
+                total_sessions = df['session_id'].nunique()
+                cv_sessions = df[df['cv_type'].notna()]['session_id'].nunique()
+                cvr = (cv_sessions / total_sessions * 100) if total_sessions > 0 else 0
+                
+                # 2. 日別トレンド（直近7日）
+                daily_trend = df.groupby('event_date')['session_id'].nunique().tail(7).to_dict()
+                
+                # 3. デバイス別
+                device_stats = df.groupby('device_type')['session_id'].nunique().to_dict()
+                
+                data_summary = f"""
+                Total Sessions: {total_sessions}
+                CV Sessions: {cv_sessions}
+                CVR: {cvr:.2f}%
+                Recent Daily Sessions: {daily_trend}
+                Device Stats: {device_stats}
+                Current Scenario: {st.session_state.get('data_scenario', 'Unknown')}
+                """
+                
+                response = ai_analysis.chat_with_data(prompt, data_summary)
+                st.markdown(response)
+                
+        # 履歴に追加
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
 # フッター
 st.markdown("---")
