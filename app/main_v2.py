@@ -403,6 +403,7 @@ st.markdown("""
 /* Slider Track (horizontal bar) - Navy color */
 div.stSlider > div[data-baseweb="slider"] > div > div {
     background: #000080 !important;
+    background-color: #000080 !important;
 }
 div.stSlider > div[data-baseweb="slider"] > div > div > div > div {
     background-color: #000080 !important;
@@ -411,14 +412,14 @@ div.stSlider > div[data-baseweb="slider"] > div > div > div > div {
 div.stSlider > div[data-baseweb="slider"] > div > div > div[role="slider"] {
     background-color: #000080 !important;
 }
-/* Remove background from value label and set contrasting text */
+/* Remove background from value label and set Navy text */
 div[data-testid="stSliderThumbValue"] {
     background: none !important;
     background-color: transparent !important;
     background-image: none !important;
     border: none !important;
     box-shadow: none !important;
-    color: #ffffff !important;
+    color: #000080 !important;
 }
 
 </style>
