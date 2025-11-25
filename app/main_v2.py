@@ -412,14 +412,9 @@ div.stSlider > div[data-baseweb="slider"] > div > div > div > div {
 div.stSlider > div[data-baseweb="slider"] > div > div > div[role="slider"] {
     background-color: #000080 !important;
 }
-/* Remove background from value label and set White text */
+/* Remove background from value label and set Navy text */
 div[data-testid="stSliderThumbValue"] {
-    background: none !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    color: #ffffff !important;
+    display: none !important;
 }
 
 </style>
@@ -496,28 +491,108 @@ if "custom_fv_exit_rate" not in st.session_state:
 if "target_cvr" not in st.session_state:
     st.session_state.target_cvr = 3.0
 
+# Callback function to update related metrics based on Target CVR
+def update_related_metrics():
+    """
+    想定CVRの変更に連動して、滞在時間係数とFV離脱率を自動調整するコールバック関数。
+    CVRが高いほど滞在時間は長く、離脱率は低くなる傾向を反映。
+    """
+    # Use the shared state key 'target_cvr'
+    new_cvr = st.session_state.target_cvr
+    
+    # 1. 滞在時間係数の計算 (CVR 3.0% -> 2.0 を基準に線形スケーリング)
+    # CVR 0.1% -> ~1.0, CVR 10.0% -> ~4.3 (上限4.0でクリップ)
+    new_stay_mu = 1.0 + (new_cvr / 3.0) * 1.0
+    st.session_state.custom_stay_time_mu = max(1.0, min(4.0, new_stay_mu))
+    
+    # 2. FV離脱率の計算 (CVR 3.0% -> 0.4 を基準に逆相関)
+    # CVRが高くなるほど離脱率は下がる
+    # CVR 0.1% -> ~0.7, CVR 10.0% -> ~ -0.3 (下限0.1でクリップ)
+    new_fv_exit = max(0.1, 0.7 - (new_cvr / 10.0) * 1.0)
+    st.session_state.custom_fv_exit_rate = max(0.1, min(0.9, new_fv_exit))
+
+# Helper to display slider and number input side-by-side
+def slider_and_input(label, min_val, max_val, default_val, step, state_key, fmt="%.1f", on_change=None):
+    # Ensure session state is initialized
+    if state_key not in st.session_state:
+        st.session_state[state_key] = default_val
+    
+    # Initialize widget keys if not present
+    if f"{state_key}_slider" not in st.session_state:
+        st.session_state[f"{state_key}_slider"] = st.session_state[state_key]
+    if f"{state_key}_input" not in st.session_state:
+        st.session_state[f"{state_key}_input"] = st.session_state[state_key]
+
+    def update_from_slider():
+        val = st.session_state[f"{state_key}_slider"]
+        st.session_state[state_key] = val
+        st.session_state[f"{state_key}_input"] = val # Sync input
+        if on_change:
+            on_change()
+
+    def update_from_input():
+        val = st.session_state[f"{state_key}_input"]
+        st.session_state[state_key] = val
+        st.session_state[f"{state_key}_slider"] = val # Sync slider
+        if on_change:
+            on_change()
+
+    # Display label above columns for better alignment
+    st.sidebar.markdown(f"<small>{label}</small>", unsafe_allow_html=True)
+    
+    # Adjust column ratio to make input smaller (3:1 -> 7:3 or similar)
+    col1, col2 = st.sidebar.columns([7, 3])
+    with col1:
+        st.slider(
+            label,
+            min_value=min_val,
+            max_value=max_val,
+            value=st.session_state[state_key], # Initial value only used if key not in state, but key is in state
+            step=step,
+            format=fmt,
+            key=f"{state_key}_slider",
+            on_change=update_from_slider,
+            label_visibility="collapsed"
+        )
+    with col2:
+        st.number_input(
+            "Value",
+            min_value=min_val,
+            max_value=max_val,
+            value=st.session_state[state_key],
+            step=step,
+            format=fmt,
+            key=f"{state_key}_input",
+            on_change=update_from_input,
+            label_visibility="collapsed"
+        )
+    return st.session_state[state_key]
+
 # Move Target CVR to top
-target_cvr_input = st.sidebar.slider(
+target_cvr_input = slider_and_input(
     "想定CVR (%)",
-    min_value=0.1,
-    max_value=10.0,
-    value=st.session_state.target_cvr,
-    step=0.1,
-    format="%.1f",
-    key="input_target_cvr"
+    0.1, 10.0, 3.0, 0.1,
+    "target_cvr", "%.1f", update_related_metrics
 )
 
 # Remove CVR Multiplier slider
 # custom_cvr_mult = st.sidebar.slider("CVR倍率", 0.5, 2.0, st.session_state.custom_cvr_multiplier, 0.1, key="slider_cvr_mult")
 
-custom_stay_mu = st.sidebar.slider("滞在時間係数", 1.0, 4.0, st.session_state.custom_stay_time_mu, 0.1, key="slider_stay_mu")
-custom_fv_exit = st.sidebar.slider("FV離脱率", 0.1, 0.9, st.session_state.custom_fv_exit_rate, 0.05, key="slider_fv_exit")
+custom_stay_mu = slider_and_input(
+    "滞在時間係数",
+    1.0, 4.0, 2.0, 0.1,
+    "custom_stay_time_mu", "%.1f"
+)
+
+custom_fv_exit = slider_and_input(
+    "FV離脱率",
+    0.1, 0.9, 0.4, 0.05,
+    "custom_fv_exit_rate", "%.2f"
+)
 
 # Update session state from widgets
 # st.session_state.custom_cvr_multiplier = custom_cvr_mult # Removed
-st.session_state.custom_stay_time_mu = custom_stay_mu
-st.session_state.custom_fv_exit_rate = custom_fv_exit
-st.session_state.target_cvr = target_cvr_input
+# Values are already updated in session state via slider_and_input callbacks
 
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
     with st.spinner(f"設定に基づいてデータを生成中..."):
