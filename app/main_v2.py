@@ -418,39 +418,42 @@ if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="pr
     if product_description:
         with st.spinner("商材特性を分析中..."):
             analysis_result_json = ai_analysis.analyze_product_characteristics(product_description)
-            try:
-                # Robust JSON extraction
-                import re
-                # Find the first '{' and the last '}'
-                match = re.search(r"\{.*\}", analysis_result_json, re.DOTALL)
-                if match:
-                    json_str = match.group(0)
-                    analysis_result = json.loads(json_str)
+            # Check for API errors first
+            if analysis_result_json.startswith("Error generating content"):
+                st.sidebar.error("AI生成エラーが発生しました。")
+                st.sidebar.error(analysis_result_json)
+            else:
+                try:
+                    # Robust JSON extraction
+                    import re
+                    # Find the first '{' and the last '}'
+                    match = re.search(r"\{.*\}", analysis_result_json, re.DOTALL)
+                    if match:
+                        json_str = match.group(0)
+                        analysis_result = json.loads(json_str)
+                        
+                        st.session_state.product_analysis = analysis_result
+                        st.sidebar.success("分析完了！設定を自動更新しました。")
+                        
+                        # Update session state with AI suggestions
+                        params = analysis_result.get("scenario_params", {})
+                        st.session_state.custom_cvr_multiplier = float(params.get("cvr_multiplier", 1.0))
+                        st.session_state.custom_stay_time_mu = float(params.get("stay_time_mu_base", 2.0))
+                        st.session_state.custom_fv_exit_rate = float(params.get("fv_exit_rate", 0.4))
+                        
+                        # Try to parse estimated CVR to set target_cvr
+                        est_cvr_str = analysis_result.get('estimated_cvr_range', '3.0')
+                        # Extract the first float found in the string
+                        match_cvr = re.search(r"(\d+(\.\d+)?)", est_cvr_str)
+                        if match_cvr:
+                            st.session_state.target_cvr = float(match_cvr.group(1))
+                    else:
+                        raise ValueError("JSON format not found in response")
                     
-                    st.session_state.product_analysis = analysis_result
-                    st.sidebar.success("分析完了！設定を自動更新しました。")
-                    
-                    # Update session state with AI suggestions
-                    params = analysis_result.get("scenario_params", {})
-                    st.session_state.custom_cvr_multiplier = float(params.get("cvr_multiplier", 1.0))
-                    st.session_state.custom_stay_time_mu = float(params.get("stay_time_mu_base", 2.0))
-                    st.session_state.custom_fv_exit_rate = float(params.get("fv_exit_rate", 0.4))
-                    
-                    # Try to parse estimated CVR to set target_cvr
-                    est_cvr_str = analysis_result.get('estimated_cvr_range', '3.0')
-                    # Extract the first float found in the string
-                    match_cvr = re.search(r"(\d+(\.\d+)?)", est_cvr_str)
-                    if match_cvr:
-                        st.session_state.target_cvr = float(match_cvr.group(1))
-                else:
-                    raise ValueError("JSON format not found in response")
-                
-            except Exception as e:
-                st.sidebar.error("AI分析結果の解析に失敗しました。")
-                with st.sidebar.expander("詳細エラー"):
-                    st.write(f"Error: {e}")
-                    st.write("Raw Response:")
-                    st.text(analysis_result_json)
+                except Exception as e:
+                    st.sidebar.error("AI分析結果の解析に失敗しました。")
+                    st.sidebar.warning("AIからの応答が不正な形式です。")
+                    st.sidebar.text_area("Raw Response", analysis_result_json, height=200)
     else:
         st.sidebar.warning("商材概要を入力してください。")
 
@@ -469,8 +472,6 @@ st.sidebar.markdown("##### シミュレーション設定")
 
 # Custom Scenario Parameters (Always visible)
 # Initialize session state if not set
-if "custom_cvr_multiplier" not in st.session_state:
-    st.session_state.custom_cvr_multiplier = 1.0
 if "custom_stay_time_mu" not in st.session_state:
     st.session_state.custom_stay_time_mu = 2.0
 if "custom_fv_exit_rate" not in st.session_state:
@@ -478,10 +479,7 @@ if "custom_fv_exit_rate" not in st.session_state:
 if "target_cvr" not in st.session_state:
     st.session_state.target_cvr = 3.0
 
-custom_cvr_mult = st.sidebar.slider("CVR倍率", 0.5, 2.0, st.session_state.custom_cvr_multiplier, 0.1, key="slider_cvr_mult")
-custom_stay_mu = st.sidebar.slider("滞在時間係数", 1.0, 4.0, st.session_state.custom_stay_time_mu, 0.1, key="slider_stay_mu")
-custom_fv_exit = st.sidebar.slider("FV離脱率", 0.1, 0.9, st.session_state.custom_fv_exit_rate, 0.05, key="slider_fv_exit")
-
+# Move Target CVR to top
 target_cvr_input = st.sidebar.slider(
     "想定CVR (%)",
     min_value=0.1,
@@ -492,8 +490,14 @@ target_cvr_input = st.sidebar.slider(
     key="input_target_cvr"
 )
 
+# Remove CVR Multiplier slider
+# custom_cvr_mult = st.sidebar.slider("CVR倍率", 0.5, 2.0, st.session_state.custom_cvr_multiplier, 0.1, key="slider_cvr_mult")
+
+custom_stay_mu = st.sidebar.slider("滞在時間係数", 1.0, 4.0, st.session_state.custom_stay_time_mu, 0.1, key="slider_stay_mu")
+custom_fv_exit = st.sidebar.slider("FV離脱率", 0.1, 0.9, st.session_state.custom_fv_exit_rate, 0.05, key="slider_fv_exit")
+
 # Update session state from widgets
-st.session_state.custom_cvr_multiplier = custom_cvr_mult
+# st.session_state.custom_cvr_multiplier = custom_cvr_mult # Removed
 st.session_state.custom_stay_time_mu = custom_stay_mu
 st.session_state.custom_fv_exit_rate = custom_fv_exit
 st.session_state.target_cvr = target_cvr_input
@@ -512,7 +516,7 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
             'transition_sd': 0.05,
             'bottleneck_pages': {3: 0.3}, # Default bottleneck
             'cta_click_rate_base': 0.10,
-            'cvr_multiplier': custom_cvr_mult,
+            'cvr_multiplier': 1.0, # Fixed to 1.0 as requested (User controls CVR via Target CVR slider)
             'stay_time_mu_base': custom_stay_mu,
             'stay_time_sigma': 0.6,
             'backflow_base': 0.05,
