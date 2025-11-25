@@ -471,17 +471,17 @@ if "custom_fv_exit_rate" not in st.session_state:
 if "target_cvr" not in st.session_state:
     st.session_state.target_cvr = 3.0
 
-custom_cvr_mult = st.sidebar.slider("CVR倍率 (AI推奨)", 0.5, 2.0, st.session_state.custom_cvr_multiplier, 0.1, key="slider_cvr_mult")
-custom_stay_mu = st.sidebar.slider("滞在時間係数 (AI推奨)", 1.0, 4.0, st.session_state.custom_stay_time_mu, 0.1, key="slider_stay_mu")
-custom_fv_exit = st.sidebar.slider("FV離脱率 (AI推奨)", 0.1, 0.9, st.session_state.custom_fv_exit_rate, 0.05, key="slider_fv_exit")
+custom_cvr_mult = st.sidebar.slider("CVR倍率", 0.5, 2.0, st.session_state.custom_cvr_multiplier, 0.1, key="slider_cvr_mult")
+custom_stay_mu = st.sidebar.slider("滞在時間係数", 1.0, 4.0, st.session_state.custom_stay_time_mu, 0.1, key="slider_stay_mu")
+custom_fv_exit = st.sidebar.slider("FV離脱率", 0.1, 0.9, st.session_state.custom_fv_exit_rate, 0.05, key="slider_fv_exit")
 
-target_cvr_input = st.sidebar.number_input(
+target_cvr_input = st.sidebar.slider(
     "想定CVR (%)",
     min_value=0.1,
-    max_value=100.0,
+    max_value=10.0,
     value=st.session_state.target_cvr,
     step=0.1,
-    format="%.2f",
+    format="%.1f",
     key="input_target_cvr"
 )
 
