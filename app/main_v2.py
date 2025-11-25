@@ -503,13 +503,21 @@ def update_related_metrics():
     # 1. 滞在時間係数の計算 (CVR 3.0% -> 2.0 を基準に線形スケーリング)
     # CVR 0.1% -> ~1.0, CVR 10.0% -> ~4.3 (上限4.0でクリップ)
     new_stay_mu = 1.0 + (new_cvr / 3.0) * 1.0
-    st.session_state.custom_stay_time_mu = max(1.0, min(4.0, new_stay_mu))
+    new_stay_mu = max(1.0, min(4.0, new_stay_mu))
+    st.session_state.custom_stay_time_mu = new_stay_mu
+    # Sync widget states
+    st.session_state.custom_stay_time_mu_slider = new_stay_mu
+    st.session_state.custom_stay_time_mu_input = new_stay_mu
     
     # 2. FV離脱率の計算 (CVR 3.0% -> 0.4 を基準に逆相関)
     # CVRが高くなるほど離脱率は下がる
     # CVR 0.1% -> ~0.7, CVR 10.0% -> ~ -0.3 (下限0.1でクリップ)
     new_fv_exit = max(0.1, 0.7 - (new_cvr / 10.0) * 1.0)
-    st.session_state.custom_fv_exit_rate = max(0.1, min(0.9, new_fv_exit))
+    new_fv_exit = max(0.1, min(0.9, new_fv_exit))
+    st.session_state.custom_fv_exit_rate = new_fv_exit
+    # Sync widget states
+    st.session_state.custom_fv_exit_rate_slider = new_fv_exit
+    st.session_state.custom_fv_exit_rate_input = new_fv_exit
 
 # Helper to display slider and number input side-by-side
 def slider_and_input(label, min_val, max_val, default_val, step, state_key, fmt="%.1f", on_change=None):
