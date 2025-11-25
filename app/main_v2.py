@@ -25,6 +25,7 @@ import numpy as np
 import numpy as np
 import time
 import json
+import random
 
 from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
