@@ -781,8 +781,9 @@ def analyze_product_characteristics(product_description):
             "stay_time_mu_base": float,
             "fv_exit_rate": float
         }},
-        "reasoning": "Brief explanation in English"
+        "reasoning": "Brief explanation in Japanese"
     }}
+    **IMPORTANT: All text values (target_audience, bottlenecks, reasoning) MUST be in Japanese.**
     """
     return _safe_generate(prompt)
 
