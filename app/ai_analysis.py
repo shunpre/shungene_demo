@@ -781,7 +781,7 @@ def analyze_product_characteristics(product_description):
             "stay_time_mu_base": float,
             "fv_exit_rate": float
         }},
-        "reasoning": "Brief explanation in Japanese"
+        "reasoning": "Brief explanation in English"
     }}
     """
     return _safe_generate(prompt)
