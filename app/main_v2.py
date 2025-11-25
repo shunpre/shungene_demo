@@ -489,8 +489,7 @@ def assign_channel(row):
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
 if "generated_data" not in st.session_state or st.session_state.generated_data.empty:
     st.info("""
-    **ガイド**
-    左側のサイドバーで想定CVRとシナリオを設定し、「ダミーデータを生成」ボタンを押して、データ分析の学習にご活用ください。
+    **ガイド ：** 左側のサイドバーで想定CVRとシナリオを設定し、「ダミーデータを生成」ボタンを押して、データ分析の学習にご活用ください。
     """)
     st.stop()
 else:
