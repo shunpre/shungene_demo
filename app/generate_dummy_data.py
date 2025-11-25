@@ -16,11 +16,12 @@ SCENARIO_CONFIGS = {
         'description': '流入多・離脱多（広告ロス多発）',
         'num_sessions_per_day_range': (800, 1200),
         'fv_exit_rate': 0.70, # FV離脱率 70%
-        'transition_mean': 0.75, # ページ遷移率 低い
-        'transition_sd': 0.05,
+        'transition_mean': 0.60, # ページ遷移率 かなり低い
+        'transition_sd': 0.10,
+        'bottleneck_pages': {3: 0.6, 5: 0.5}, # 3ページ目と5ページ目で半数が脱落
         'cta_click_rate_base': 0.05, # CTAクリック率 低い
         'cvr_multiplier': 0.8, # 想定CVR x 0.8 (不調)
-        'stay_time_mu_base': 1.5, # ln(seconds). e^1.5 ≈ 4.5秒 (サクサク離脱)
+        'stay_time_mu_base': 2.0, # ln(seconds). e^2.0 ≈ 7.4秒 (短め)
         'stay_time_sigma': 0.8, # ばらつき大
         'backflow_base': 0.02, # 戻る人は少ない
         'device_dist': ['mobile', 'desktop'],
@@ -33,9 +34,10 @@ SCENARIO_CONFIGS = {
         'fv_exit_rate': 0.15, # FV離脱率 15%
         'transition_mean': 0.98, # ほとんど次へ進む
         'transition_sd': 0.01,
+        'bottleneck_pages': {}, # ボトルネックなし
         'cta_click_rate_base': 0.25, # CTAクリック率 高い
         'cvr_multiplier': 1.3, # 想定CVR x 1.3 (好調)
-        'stay_time_mu_base': 2.5, # ln(seconds). e^2.5 ≈ 12秒 (じっくり読む)
+        'stay_time_mu_base': 3.5, # ln(seconds). e^3.5 ≈ 33秒 (じっくり読む)
         'stay_time_sigma': 0.4, # ばらつき小
         'backflow_base': 0.15, # 何度も読み返す
         'device_dist': ['mobile', 'desktop', 'tablet'],
@@ -48,9 +50,10 @@ SCENARIO_CONFIGS = {
         'fv_exit_rate': 0.40,
         'transition_mean': 0.90,
         'transition_sd': 0.03,
+        'bottleneck_pages': {2: 0.4, 6: 0.4}, # 特定ページでスマホユーザーが離脱
         'cta_click_rate_base': 0.10,
         'cvr_multiplier': 0.8, # 想定CVR x 0.8 (不調)
-        'stay_time_mu_base': 2.0, # e^2.0 ≈ 7.4秒
+        'stay_time_mu_base': 2.5, # e^2.5 ≈ 12秒
         'stay_time_sigma': 0.6,
         'backflow_base': 0.05,
         'device_dist': ['mobile', 'desktop'],
@@ -69,9 +72,10 @@ SCENARIO_CONFIGS = {
         'fv_exit_rate': 0.35,
         'transition_mean': 0.92,
         'transition_sd': 0.03,
+        'bottleneck_pages': {4: 0.2}, # 少しだけ離脱ポイントあり
         'cta_click_rate_base': 0.12,
         'cvr_multiplier': 1.0, # 想定CVR x 1.0 (普通)
-        'stay_time_mu_base': 1.8, # e^1.8 ≈ 6秒
+        'stay_time_mu_base': 3.0, # e^3.0 ≈ 20秒
         'stay_time_sigma': 0.6,
         'backflow_base': 0.05,
         'device_dist': ['mobile', 'desktop', 'tablet'],
@@ -120,7 +124,7 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     config.update(scenario_config)
     
     # CVR設定: 想定CVR x シナリオ倍率
-    config['base_session_cvr'] = target_cvr * config.get('cvr_multiplier', 1.0)
+    base_cvr = target_cvr * config.get('cvr_multiplier', 1.0)
 
     # 基準日時
     end_date = datetime.now()
@@ -151,11 +155,7 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     utm_campaigns = ["spring_sale", "summer_campaign", "brand_awareness", None]
     ab_variants = ["A", "B"]
     ab_test_targets = ['hero_image', 'cta_button', 'headline', 'layout', None]
-    navigation_methods = ["swipe", "click", "scroll"]
     
-    # A/Bテストごとのp値を保持
-    test_p_values = {}
-
     data = []
     
     # ユーザーIDプール
@@ -186,7 +186,7 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
             device_type = random.choices(config['device_dist'], weights=config['device_weights'])[0]
             channel = random.choices(config['channel_dist'], weights=config['channel_weights'])[0]
             
-            # UTMパラメータ決定 (簡略化)
+            # UTMパラメータ決定
             utm_source, utm_medium, page_referrer = "(direct)", "(none)", None
             if channel != 'Direct':
                 src_key = random.choice(list(traffic_sources.keys()))
@@ -202,29 +202,47 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
             session_variant = random.choice(ab_variants)
             ab_test_target = random.choice(ab_test_targets)
             
-            # ページ数決定 (可変)
+            # ページ数決定
             session_num_pages = config['num_pages_dist']()
+            
+            # --- CVR事前判定 (ここが重要) ---
+            # ユーザー属性によるCVR補正
+            session_cvr_prob = base_cvr
+            session_cvr_prob *= config['device_coeff'][device_type]['cvr']
+            session_cvr_prob *= config['channel_coeff'].get(channel, {'cvr': 1.0})['cvr']
+            
+            is_converting = random.random() < session_cvr_prob
             
             # --- ページ遷移シミュレーション ---
             max_page_reached = 1
-            current_page_events = []
             
-            # FV離脱判定
-            if random.random() < config['fv_exit_rate']:
-                max_page_reached = 1
+            if is_converting:
+                # CVするユーザーは必ず最後まで（またはフォームまで）行く
+                max_page_reached = session_num_pages
             else:
-                # 2ページ目以降の遷移
-                for p in range(2, session_num_pages + 1):
-                    # 遷移確率
-                    p_trans = norm.rvs(loc=config['transition_mean'], scale=config['transition_sd'])
-                    p_trans = np.clip(p_trans, 0.1, 0.99)
-                    if random.random() > p_trans:
-                        max_page_reached = p - 1
-                        break
-                    max_page_reached = p
+                # CVしないユーザーの離脱ロジック
+                # FV離脱判定
+                if random.random() < config['fv_exit_rate']:
+                    max_page_reached = 1
+                else:
+                    # 2ページ目以降の遷移
+                    for p in range(2, session_num_pages + 1):
+                        # ボトルネック判定
+                        bottleneck_drop_prob = config.get('bottleneck_pages', {}).get(p - 1, 0.0)
+                        
+                        # 遷移確率 (基本遷移率 - ボトルネック離脱率)
+                        p_trans = norm.rvs(loc=config['transition_mean'], scale=config['transition_sd'])
+                        p_trans -= bottleneck_drop_prob # ボトルネックがあれば遷移率ダウン
+                        p_trans = np.clip(p_trans, 0.05, 0.99)
+                        
+                        if random.random() > p_trans:
+                            max_page_reached = p - 1
+                            break
+                        max_page_reached = p
 
             # --- イベント生成 ---
             session_total_duration_ms = 0
+            current_page_events = []
             
             for page_num in range(1, max_page_reached + 1):
                 page_location = f"{lp_url_base}#page-{page_num}"
@@ -235,20 +253,20 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
                 load_time_ms = gamma.rvs(a=config['load_time_k'], scale=config['load_time_theta_ms'] * config['device_coeff'][device_type]['load'])
                 load_time_ms = max(100, load_time_ms)
 
-                # Stay Time (修正済み: np.expを除去し、秒単位のmuを使用)
-                # stay_time_mu_base は ln(seconds) なので、expをとると秒になる
+                # Stay Time
                 stay_mu = config['stay_time_mu_base']
-                # デバイス・チャネル補正 (log scaleで加算するか、linear scaleで乗算するか。ここではlinear scaleで乗算)
-                stay_scale_factor = config['device_coeff'][device_type]['stay'] * config['channel_coeff'].get(channel, {'stay': 1.0})['stay']
                 
-                # lognorm.rvs(s, scale=exp(mu)) -> 値は exp(mu) * random_factor
-                # ここでは scale = exp(stay_mu) * stay_scale_factor * 1000 (ms)
+                # CVするユーザーは滞在時間が長い (1.5倍〜2.0倍)
+                if is_converting:
+                    stay_mu += 0.5 # log scaleでの加算は乗算効果 (e^0.5 ≈ 1.65倍)
+                
+                stay_scale_factor = config['device_coeff'][device_type]['stay'] * config['channel_coeff'].get(channel, {'stay': 1.0})['stay']
                 scale_ms = np.exp(stay_mu) * stay_scale_factor * 1000
                 
                 stay_ms = lognorm.rvs(s=config['stay_time_sigma'], scale=scale_ms)
-                stay_ms = max(500, stay_ms) # 最低0.5秒
+                stay_ms = max(1000, stay_ms) # 最低1秒
                 
-                # ページ種別補正 (動画ページなど)
+                # ページ種別補正
                 if page_num in [1, 8]: stay_ms *= 1.5 
 
                 # 逆行・スクロール
@@ -257,7 +275,12 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
                     direction = 'backward'
                     stay_ms *= (1 + config['backflow_stay_bonus'])
                 
-                scroll_pct = min(1.0, random.uniform(0.2, 0.8) + (stay_ms / 10000) * 0.5) # 長くいるほどスクロールする
+                # スクロール率: 長くいるほど、またCVする人は深く読む
+                base_scroll = random.uniform(0.2, 0.8)
+                if is_converting:
+                    base_scroll = random.uniform(0.8, 1.0) # CVする人はほぼ読み切る
+                
+                scroll_pct = min(1.0, base_scroll + (stay_ms / 20000) * 0.5)
 
                 # Page View Event
                 event_data = {
@@ -286,7 +309,7 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
                     "direction": direction,
                     "ab_variant": session_variant,
                     "ab_test_target": ab_test_target,
-                    # Initialize columns to avoid KeyError
+                    # Initialize columns
                     "cv_type": None,
                     "cv_value": None,
                     "value": None,
@@ -303,8 +326,12 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
                 }
                 current_page_events.append(event_data)
                 
-                # Click Event
-                if random.random() < (config['cta_click_rate_base'] if page_num == max_page_reached else 0.05):
+                # Click Event (CVする人はCTAクリック率も高い)
+                click_prob = config['cta_click_rate_base']
+                if is_converting and page_num == max_page_reached:
+                    click_prob = 0.9 # CVするなら最後はほぼクリックする
+                
+                if random.random() < click_prob:
                     click_event = event_data.copy()
                     click_event['event_name'] = 'click'
                     click_event['event_timestamp'] += timedelta(milliseconds=random.randint(100, int(stay_ms)))
@@ -314,15 +341,8 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
 
                 session_total_duration_ms += int(stay_ms + load_time_ms)
 
-            # --- CVR判定 ---
-            # ベースCVR * 到達率係数 * デバイス係数 * チャネル係数
-            cvr_prob = config['base_session_cvr']
-            cvr_prob *= (max_page_reached / session_num_pages) # 最後まで読まないとCVしにくい
-            cvr_prob *= config['device_coeff'][device_type]['cvr']
-            cvr_prob *= config['channel_coeff'].get(channel, {'cvr': 1.0})['cvr']
-            
-            if random.random() < cvr_prob:
-                # CV Event
+            # --- CVイベント生成 ---
+            if is_converting:
                 cv_event = current_page_events[-1].copy()
                 cv_event['event_name'] = 'conversion'
                 cv_event['event_timestamp'] += timedelta(milliseconds=1000)
@@ -337,10 +357,9 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     df = pd.DataFrame(data)
     
     # --- 意図的なアラートデータを注入 ---
-    # 期間内にランダムな3日を「異常日」として設定
-    if num_days >= 10 and not df.empty: # Ensure df is not empty before accessing columns
-        if scenario == 'スマホ苦手': # Mobile Struggle
-            # スマホ苦手シナリオでは、スマホのCVRをさらに下げる日を作るなど
+    if num_days >= 10 and not df.empty:
+        if scenario == '不調（モバイル課題）':
+            # 特定の日にモバイルのCVRが0になるなどの極端な異常値を混ぜる
             pass
 
     # 日付でソート
@@ -352,6 +371,14 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     return df
 
 if __name__ == "__main__":
-    df = generate_dummy_data(scenario='穴のあいたバケツ', num_days=3)
+    # テスト実行
+    df = generate_dummy_data(scenario='標準（ベースライン）', num_days=3)
     print(f"Generated {len(df)} events.")
-    print(df.head().to_markdown())
+    if not df.empty:
+        print(df[['session_id', 'event_name', 'stay_ms', 'max_page_reached', 'cv_value']].head(20).to_markdown())
+        # CVしたセッションの平均滞在時間と、CVしてないセッションの平均滞在時間を比較
+        cv_sessions = df[df['event_name'] == 'conversion']['session_id'].unique()
+        avg_stay_cv = df[df['session_id'].isin(cv_sessions)]['stay_ms'].mean()
+        avg_stay_no_cv = df[~df['session_id'].isin(cv_sessions)]['stay_ms'].mean()
+        print(f"\nAvg Stay Time (CV): {avg_stay_cv:.2f} ms")
+        print(f"Avg Stay Time (No CV): {avg_stay_no_cv:.2f} ms")
