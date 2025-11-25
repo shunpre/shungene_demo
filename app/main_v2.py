@@ -22,7 +22,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import numpy as np
+import numpy as np
 import time
+import json
 
 from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
@@ -399,7 +401,7 @@ product_description = st.sidebar.text_area(
     key="product_description_input"
 )
 
-if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="secondary", use_container_width=True):
+if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="primary", use_container_width=True):
     if product_description:
         with st.spinner("商材特性を分析中..."):
             analysis_result_json = ai_analysis.analyze_product_characteristics(product_description)
