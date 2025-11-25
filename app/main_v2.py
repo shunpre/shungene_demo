@@ -400,11 +400,17 @@ st.sidebar.markdown("##### 商材・サービス設定")
 # CSS for Blue Sliders
 st.markdown("""
 <style>
-div.stSlider > div[data-baseweb = "slider"] > div > div > div[role="slider"]{
+/* Slider Track (Filled) & Handle */
+div.stSlider > div[data-baseweb="slider"] > div > div > div > div {
     background-color: #000080 !important;
 }
-div.stSlider > div[data-baseweb = "slider"] > div > div > div > div{
+div.stSlider > div[data-baseweb="slider"] > div > div > div[role="slider"] {
     background-color: #000080 !important;
+}
+/* Slider Value Label - Remove background, set text color */
+div[data-testid="stThumbValue"] {
+    background-color: transparent !important;
+    color: #000080 !important;
 }
 </style>
 """, unsafe_allow_html=True)
