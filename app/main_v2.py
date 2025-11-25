@@ -412,14 +412,14 @@ div.stSlider > div[data-baseweb="slider"] > div > div > div > div {
 div.stSlider > div[data-baseweb="slider"] > div > div > div[role="slider"] {
     background-color: #000080 !important;
 }
-/* Remove background from value label and set Navy text */
+/* Remove background from value label and set White text */
 div[data-testid="stSliderThumbValue"] {
     background: none !important;
     background-color: transparent !important;
     background-image: none !important;
     border: none !important;
     box-shadow: none !important;
-    color: #000080 !important;
+    color: #ffffff !important;
 }
 
 </style>
