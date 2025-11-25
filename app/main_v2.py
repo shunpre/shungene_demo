@@ -407,11 +407,7 @@ div.stSlider > div[data-baseweb="slider"] > div > div > div > div {
 div.stSlider > div[data-baseweb="slider"] > div > div > div[role="slider"] {
     background-color: #000080 !important;
 }
-/* Slider Value Label - Remove background, set text color */
-div[data-testid="stThumbValue"] {
-    background-color: transparent !important;
-    color: #000080 !important;
-}
+
 </style>
 """, unsafe_allow_html=True)
 
