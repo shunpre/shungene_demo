@@ -401,10 +401,10 @@ st.sidebar.markdown("##### 商材・サービス設定")
 st.markdown("""
 <style>
 div.stSlider > div[data-baseweb = "slider"] > div > div > div[role="slider"]{
-    background-color: #0000FF !important;
+    background-color: #000080 !important;
 }
 div.stSlider > div[data-baseweb = "slider"] > div > div > div > div{
-    background-color: #0000FF !important;
+    background-color: #000080 !important;
 }
 </style>
 """, unsafe_allow_html=True)
