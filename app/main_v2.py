@@ -395,6 +395,19 @@ st.sidebar.markdown("---")
 
 # --- Product Analysis & Scenario Customizer ---
 st.sidebar.markdown("##### 商材・サービス設定")
+
+# CSS for Blue Sliders
+st.markdown("""
+<style>
+div.stSlider > div[data-baseweb = "slider"] > div > div > div[role="slider"]{
+    background-color: #0000FF !important;
+}
+div.stSlider > div[data-baseweb = "slider"] > div > div > div > div{
+    background-color: #0000FF !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 product_description = st.sidebar.text_area(
     "商材・サービス概要",
     placeholder="例: 40代女性向けのエイジングケア美容液。定期購入がメイン。",
@@ -411,13 +424,21 @@ if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="pr
                 analysis_result = json.loads(analysis_result_json)
                 
                 st.session_state.product_analysis = analysis_result
-                st.sidebar.success("分析完了！")
+                st.sidebar.success("分析完了！設定を自動更新しました。")
                 
                 # Update session state with AI suggestions
                 params = analysis_result.get("scenario_params", {})
-                st.session_state.custom_cvr_multiplier = params.get("cvr_multiplier", 1.0)
-                st.session_state.custom_stay_time_mu = params.get("stay_time_mu_base", 2.0)
-                st.session_state.custom_fv_exit_rate = params.get("fv_exit_rate", 0.4)
+                st.session_state.custom_cvr_multiplier = float(params.get("cvr_multiplier", 1.0))
+                st.session_state.custom_stay_time_mu = float(params.get("stay_time_mu_base", 2.0))
+                st.session_state.custom_fv_exit_rate = float(params.get("fv_exit_rate", 0.4))
+                
+                # Try to parse estimated CVR to set target_cvr
+                est_cvr_str = analysis_result.get('estimated_cvr_range', '3.0')
+                import re
+                # Extract the first float found in the string
+                match = re.search(r"(\d+(\.\d+)?)", est_cvr_str)
+                if match:
+                    st.session_state.target_cvr = float(match.group(1))
                 
             except json.JSONDecodeError:
                 st.sidebar.error("AI分析結果の解析に失敗しました。")
@@ -430,76 +451,75 @@ if st.sidebar.button("AIで商材を分析", key="analyze_product_btn", type="pr
 if "product_analysis" in st.session_state:
     result = st.session_state.product_analysis
     st.sidebar.info(f"""
-    **分析結果**:
+    **AI分析結果**:
     *   **ターゲット**: {result.get('target_audience', 'N/A')}
     *   **想定CVR**: {result.get('estimated_cvr_range', 'N/A')}
     *   **ボトルネック**: {', '.join(result.get('bottlenecks', []))}
     """)
 
 st.sidebar.markdown("---")
+st.sidebar.markdown("##### シミュレーション設定")
 
-# シナリオ選択
-scenario_options = ["不調（離脱率高）", "好調（高エンゲージメント）", "不調（モバイル課題）", "標準（ベースライン）", "カスタム（AI分析反映）"]
-selected_scenario = st.sidebar.selectbox("シナリオを選択", scenario_options, index=3, key="scenario_selector_main")
+# Custom Scenario Parameters (Always visible)
+# Initialize session state if not set
+if "custom_cvr_multiplier" not in st.session_state:
+    st.session_state.custom_cvr_multiplier = 1.0
+if "custom_stay_time_mu" not in st.session_state:
+    st.session_state.custom_stay_time_mu = 2.0
+if "custom_fv_exit_rate" not in st.session_state:
+    st.session_state.custom_fv_exit_rate = 0.4
+if "target_cvr" not in st.session_state:
+    st.session_state.target_cvr = 3.0
 
-# Custom Scenario Parameters (only visible if Custom is selected)
-if selected_scenario == "カスタム（AI分析反映）":
-    st.sidebar.markdown("###### カスタムパラメータ")
-    custom_cvr_mult = st.sidebar.slider("CVR倍率", 0.5, 2.0, st.session_state.get("custom_cvr_multiplier", 1.0), 0.1)
-    custom_stay_mu = st.sidebar.slider("滞在時間係数", 1.0, 4.0, st.session_state.get("custom_stay_time_mu", 2.0), 0.1)
-    custom_fv_exit = st.sidebar.slider("FV離脱率", 0.1, 0.9, st.session_state.get("custom_fv_exit_rate", 0.4), 0.05)
+custom_cvr_mult = st.sidebar.slider("CVR倍率 (AI推奨)", 0.5, 2.0, st.session_state.custom_cvr_multiplier, 0.1, key="slider_cvr_mult")
+custom_stay_mu = st.sidebar.slider("滞在時間係数 (AI推奨)", 1.0, 4.0, st.session_state.custom_stay_time_mu, 0.1, key="slider_stay_mu")
+custom_fv_exit = st.sidebar.slider("FV離脱率 (AI推奨)", 0.1, 0.9, st.session_state.custom_fv_exit_rate, 0.05, key="slider_fv_exit")
 
 target_cvr_input = st.sidebar.number_input(
     "想定CVR (%)",
     min_value=0.1,
     max_value=100.0,
-    value=st.session_state.get('target_cvr', 3.0),
+    value=st.session_state.target_cvr,
     step=0.1,
-    format="%.2f"
+    format="%.2f",
+    key="input_target_cvr"
 )
 
+# Update session state from widgets
+st.session_state.custom_cvr_multiplier = custom_cvr_mult
+st.session_state.custom_stay_time_mu = custom_stay_mu
+st.session_state.custom_fv_exit_rate = custom_fv_exit
+st.session_state.target_cvr = target_cvr_input
+
 if st.sidebar.button("ダミーデータを生成", key="global_generate_data", type="primary", use_container_width=True):
-    with st.spinner(f"「{selected_scenario}」シナリオのデータを生成中..."):
-        # 新しいダミーデータ生成関数を呼び出す
+    with st.spinner(f"設定に基づいてデータを生成中..."):
         num_days_gen = 30
         
-        # Handle Custom Scenario
-        if selected_scenario == "カスタム（AI分析反映）":
-            # We need to pass these custom parameters to generate_dummy_data
-            # Since generate_dummy_data takes a scenario string, we might need to modify it 
-            # or pass a config dict. For now, let's use a hack: modify the SCENARIO_CONFIGS in memory 
-            # or pass a special argument. 
-            # Better approach: Update generate_dummy_data to accept overrides.
-            # For this demo, I will modify generate_dummy_data to accept a 'custom_config' argument 
-            # but since I can't easily change the signature without breaking imports, 
-            # I will add a temporary 'Custom' entry to SCENARIO_CONFIGS in generate_dummy_data.py
-            # Wait, I can't modify the imported module's global variable easily from here in a clean way.
-            # I will modify generate_dummy_data.py to export SCENARIO_CONFIGS so I can update it here.
-            from app.generate_dummy_data import SCENARIO_CONFIGS
-            SCENARIO_CONFIGS['カスタム（AI分析反映）'] = {
-                'description': 'AI分析に基づくカスタム設定',
-                'num_sessions_per_day_range': (300, 500),
-                'fv_exit_rate': custom_fv_exit,
-                'transition_mean': 0.90,
-                'transition_sd': 0.05,
-                'bottleneck_pages': {3: 0.3}, # Default bottleneck
-                'cta_click_rate_base': 0.10,
-                'cvr_multiplier': custom_cvr_mult,
-                'stay_time_mu_base': custom_stay_mu,
-                'stay_time_sigma': 0.6,
-                'backflow_base': 0.05,
-                'device_dist': ['mobile', 'desktop'],
-                'device_weights': [0.7, 0.3],
-                'num_pages_dist': lambda: random.randint(10, 15),
-            }
+        # Inject Custom Config
+        from app.generate_dummy_data import SCENARIO_CONFIGS
+        SCENARIO_CONFIGS['カスタム（AI分析反映）'] = {
+            'description': 'AI分析に基づくカスタム設定',
+            'num_sessions_per_day_range': (300, 500),
+            'fv_exit_rate': custom_fv_exit,
+            'transition_mean': 0.90,
+            'transition_sd': 0.05,
+            'bottleneck_pages': {3: 0.3}, # Default bottleneck
+            'cta_click_rate_base': 0.10,
+            'cvr_multiplier': custom_cvr_mult,
+            'stay_time_mu_base': custom_stay_mu,
+            'stay_time_sigma': 0.6,
+            'backflow_base': 0.05,
+            'device_dist': ['mobile', 'desktop'],
+            'device_weights': [0.7, 0.3],
+            'num_pages_dist': lambda: random.randint(10, 15),
+        }
         
         st.session_state.generated_data = generate_dummy_data(
-            scenario=selected_scenario,
+            scenario='カスタム（AI分析反映）',
             num_days=num_days_gen,
-            target_cvr=target_cvr_input / 100 # %を小数に変換して渡す
+            target_cvr=target_cvr_input / 100
         )
-        st.session_state.data_scenario = selected_scenario # 現在のシナリオを保存
-        st.session_state.target_cvr = target_cvr_input # 入力されたCVRを保存
+        st.session_state.data_scenario = 'カスタム（AI分析反映）'
     
     # ページリダイレクトを削除し、現在のページを維持する
     pass
