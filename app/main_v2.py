@@ -5551,10 +5551,11 @@ elif selected_analysis == "AIアナリスト（チャット）":
     # チャット履歴の表示
     # チャット履歴の表示
     for msg in st.session_state.messages:
-        # ユーザーメッセージの場合はアイコンを非表示にする
+        # ユーザーメッセージの場合はアイコンを非表示にする（avatar=Noneでデフォルト、空文字はエラーになるためNoneにする）
+        # Streamlitの仕様上、完全に消すのは難しいが、Noneでデフォルトアイコンにする
         avatar = None
         if msg["role"] == "user":
-            avatar = " " # 空白文字を指定してアイコンを非表示風にする
+            avatar = None 
             
         with st.chat_message(msg["role"], avatar=avatar):
             st.markdown(msg["content"])
@@ -5563,7 +5564,7 @@ elif selected_analysis == "AIアナリスト（チャット）":
     if prompt := st.chat_input("質問を入力してください..."):
         # ユーザーメッセージを表示
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar=" "):
+        with st.chat_message("user", avatar=None):
             st.markdown(prompt)
 
         # AI応答生成
@@ -5617,7 +5618,7 @@ elif selected_analysis == "学習テスト":
     # クイズ難易度選択
     quiz_difficulty = st.selectbox(
         "テスト難易度を選択してください:",
-        ['初級', '中級', '上級'],
+        ['初級', '中級', '鬼マネからの出題'],
         index=0,
         key="quiz_difficulty_selector"
     )
@@ -5703,6 +5704,24 @@ elif selected_analysis == "学習テスト":
             # 各問題の解説はフォーム内のループで表示済みだが、
             # フォーム送信後はrerunされるため、フォーム内のif st.session_state.quiz_submittedブロックで表示される。
             # ここではサマリーだけを表示する。
+
+            # テストを続けるボタン（別切り口で出題）
+            if st.button("テストを続ける（別の切り口で出題）", type="secondary"):
+                with st.spinner("新しいテーマで問題を生成中..."):
+                    # トピックをランダムに選択
+                    topics = ['ABテスト', 'デモグラフィック分析', '時系列トレンド', 'LPO施策', 'ユーザー行動分析']
+                    import random
+                    next_topic = random.choice(topics)
+                    
+                    # クイズ生成（トピック指定）
+                    st.session_state.quiz_data = quiz_gen.generate_quiz(df, quiz_difficulty, topic=next_topic)
+                    st.session_state.quiz_answers = {}
+                    st.session_state.quiz_submitted = False
+                    st.session_state.current_quiz_topic = next_topic # トピックを保存
+                    st.rerun()
+
+    if 'current_quiz_topic' in st.session_state and st.session_state.quiz_data:
+         st.caption(f"現在のテーマ: {st.session_state.current_quiz_topic}")
 
     elif 'quiz_data' in st.session_state and not st.session_state.quiz_data:
         pass
