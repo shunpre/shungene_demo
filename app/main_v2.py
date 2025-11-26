@@ -5549,15 +5549,21 @@ elif selected_analysis == "AIアナリスト（チャット）":
         ]
 
     # チャット履歴の表示
+    # チャット履歴の表示
     for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
+        # ユーザーメッセージの場合はアイコンを非表示にする
+        avatar = None
+        if msg["role"] == "user":
+            avatar = " " # 空白文字を指定してアイコンを非表示風にする
+            
+        with st.chat_message(msg["role"], avatar=avatar):
             st.markdown(msg["content"])
 
     # ユーザー入力
     if prompt := st.chat_input("質問を入力してください..."):
         # ユーザーメッセージを表示
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=" "):
             st.markdown(prompt)
 
         # AI応答生成
@@ -5701,6 +5707,7 @@ elif selected_analysis == "学習テスト":
     elif 'quiz_data' in st.session_state and not st.session_state.quiz_data:
         pass
 
-# フッター
-st.markdown("---")
-st.markdown("**瞬ジェネ AIアナライザー** - Powered by Gemini 3.0Pro")
+# フッター（チャット画面以外で表示）
+if selected_analysis != "AIアナリスト（チャット）":
+    st.markdown("---")
+    st.markdown("**瞬ジェネ AIアナライザー** - Powered by Gemini 3.0Pro")
