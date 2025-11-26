@@ -31,7 +31,8 @@ import random
 from app.generate_dummy_data import generate_dummy_data
 from app.capture_lp import extract_lp_text_content
 import app.ai_analysis as ai_analysis
-
+import app.capture_lp as capture_lp
+import app.quiz_generator as quiz_gen # Move import to top level to ensure reloading.
 import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
@@ -5604,7 +5605,10 @@ elif selected_analysis == "学習テスト":
     st.markdown('<div class="sub-header">理解度確認テスト</div>', unsafe_allow_html=True)
     st.markdown('<div class="graph-description">現在のデータ状況に基づいて、AIが動的にクイズを作成します。分析スキルの向上に役立ててください。</div>', unsafe_allow_html=True)
 
-    import app.quiz_generator as quiz_gen
+    st.markdown('<div class="sub-header">理解度確認テスト</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">現在のデータ状況に基づいて、AIが動的にクイズを作成します。分析スキルの向上に役立ててください。</div>', unsafe_allow_html=True)
+
+    # import app.quiz_generator as quiz_gen # Moved to top level
 
     # クイズデータの初期化
     if 'quiz_data' not in st.session_state:
