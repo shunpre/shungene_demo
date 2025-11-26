@@ -5621,19 +5621,25 @@ elif selected_analysis == "学習テスト":
     if 'quiz_submitted' not in st.session_state:
         st.session_state.quiz_submitted = False
 
+    # クイズ難易度選択
+    quiz_difficulty = st.selectbox(
+        "テスト難易度を選択してください:",
+        ['初級（穏やかな波）', '中級（乱高下）', '上級（急降下）'],
+        index=0,
+        key="quiz_difficulty_selector"
+    )
+
     # クイズ生成ボタン
     if st.button("テストを開始する（AI生成）", type="primary"):
         with st.spinner("現在のデータから問題を生成中..."):
-            # 現在の難易度設定を取得
-            current_difficulty = st.session_state.get('difficulty_mode_selector', '初級（穏やかな波）')
             # クイズ生成
-            st.session_state.quiz_data = quiz_gen.generate_quiz(df, current_difficulty)
+            st.session_state.quiz_data = quiz_gen.generate_quiz(df, quiz_difficulty)
             st.session_state.quiz_answers = {}
             st.session_state.quiz_submitted = False
             st.rerun()
 
     if st.session_state.quiz_data:
-        st.markdown(f"### 難易度: {st.session_state.get('difficulty_mode_selector', '初級')}")
+        st.markdown(f"### 難易度: {quiz_difficulty}")
         
         with st.form("quiz_form"):
             for i, q in enumerate(st.session_state.quiz_data):
