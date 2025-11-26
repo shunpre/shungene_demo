@@ -36,6 +36,12 @@ def _safe_generate(prompt):
     except Exception as e:
         return f"Error generating content: {str(e)}"
 
+def generate_quiz_content(prompt):
+    """
+    クイズ生成用のプロンプトをGeminiに送信し、レスポンスを取得する。
+    """
+    return _safe_generate(prompt)
+
 def analyze_overall_performance(kpi_data, comparison_data=None):
     """
     Analyze overall KPI performance.

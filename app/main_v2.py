@@ -780,7 +780,7 @@ menu_groups = {
     "基本分析": ["全体サマリー", "リアルタイムビュー", "時系列分析", "デモグラフィック情報", "アラート"],
     "LP最適化分析": ["ページ分析", "A/Bテスト分析"],
     "詳細分析": ["広告分析", "インタラクション分析", "動画・スクロール分析", "瞬フォーム分析", "AIアナリスト（チャット）"],
-    "ヘルプ": ["LPOの基礎知識", "専門用語解説", "FAQ"]
+    "ヘルプ": ["学習テスト", "LPOの基礎知識", "専門用語解説", "FAQ"]
 }
 
 # --- 共通の前処理 ---
@@ -5605,6 +5605,74 @@ elif selected_analysis == "AIアナリスト（チャット）":
                 
         # 履歴に追加
         st.session_state.messages.append({"role": "assistant", "content": response})
+
+# タブ13: 学習テスト
+elif selected_analysis == "学習テスト":
+    st.markdown('<div class="sub-header">理解度確認テスト</div>', unsafe_allow_html=True)
+    st.markdown('<div class="graph-description">現在のデータ状況に基づいて、AIが動的にクイズを作成します。分析スキルの向上に役立ててください。</div>', unsafe_allow_html=True)
+
+    import app.quiz_generator as quiz_gen
+
+    # クイズデータの初期化
+    if 'quiz_data' not in st.session_state:
+        st.session_state.quiz_data = []
+    if 'quiz_answers' not in st.session_state:
+        st.session_state.quiz_answers = {}
+    if 'quiz_submitted' not in st.session_state:
+        st.session_state.quiz_submitted = False
+
+    # クイズ生成ボタン
+    if st.button("テストを開始する（AI生成）", type="primary"):
+        with st.spinner("現在のデータから問題を生成中..."):
+            # 現在の難易度設定を取得
+            current_difficulty = st.session_state.get('difficulty_mode_selector', '初級（穏やかな波）')
+            # クイズ生成
+            st.session_state.quiz_data = quiz_gen.generate_quiz(df, current_difficulty)
+            st.session_state.quiz_answers = {}
+            st.session_state.quiz_submitted = False
+            st.rerun()
+
+    if st.session_state.quiz_data:
+        st.markdown(f"### 難易度: {st.session_state.get('difficulty_mode_selector', '初級')}")
+        
+        with st.form("quiz_form"):
+            for i, q in enumerate(st.session_state.quiz_data):
+                st.markdown(f"**Q{i+1}. {q['question']}**")
+                
+                # 選択肢の表示
+                options = q['options']
+                # ユーザーの回答を取得（未回答の場合はNone）
+                # keyを一意にする
+                user_choice = st.radio(
+                    f"回答を選択してください:",
+                    options,
+                    key=f"q_{i}",
+                    index=None,
+                    label_visibility="collapsed"
+                )
+                
+                # 結果表示（送信後）
+                if st.session_state.quiz_submitted:
+                    correct_idx = q['answer']
+                    correct_option = options[correct_idx]
+                    
+                    if user_choice == correct_option:
+                        st.success("正解！")
+                    else:
+                        st.error(f"不正解... 正解は「{correct_option}」です。")
+                    
+                    st.info(f"**解説:** {q['explanation']}")
+                
+                st.markdown("---")
+            
+            # 送信ボタン
+            submitted = st.form_submit_button("回答を送信")
+            if submitted:
+                st.session_state.quiz_submitted = True
+                st.rerun()
+
+    elif 'quiz_data' in st.session_state and not st.session_state.quiz_data:
+        pass
 
 # フッター
 st.markdown("---")
