@@ -648,6 +648,18 @@ difficulty_mode = st.sidebar.selectbox(
     key="difficulty_mode_selector"
 )
 
+with st.sidebar.expander("難易度設定ガイド"):
+    st.markdown("""
+    **初級（穏やかな波）**
+    大きな変動がなく、安定したトレンド。基礎的なKPI分析や改善効果の確認に最適です。
+    
+    **中級（乱高下）**
+    日々の変動（ノイズ）が激しく、波があります。ノイズの中から真のトレンドを見極める力を養います。
+    
+    **上級（急降下）**
+    最初は順調ですが、ある時点から急激にパフォーマンスが悪化します。異常検知と緊急対応のトレーニングに適しています。
+    """)
+
 # Update session state from widgets
 # st.session_state.custom_cvr_multiplier = custom_cvr_mult # Removed
 # Values are already updated in session state via slider_and_input callbacks
