@@ -756,6 +756,38 @@ def assign_channel(row):
 
     return 'Other' # どの条件にも当てはまらない場合
 
+@st.cache_data
+def filter_dataframe(df, start_date, end_date, lp_url, device, user_type, cv_status, channel, source_medium):
+    """
+    データフレームを各種条件でフィルタリングする（キャッシュ対応）
+    """
+    # 期間フィルター
+    # datetime.date型の場合はpd.Timestampに変換して比較
+    start_ts = pd.to_datetime(start_date)
+    end_ts = pd.to_datetime(end_date)
+    
+    mask = (df['event_date'] >= start_ts) & (df['event_date'] <= end_ts)
+    
+    if lp_url:
+        mask &= (df['lp_base_url'] == lp_url)
+    
+    if device != "すべて":
+        mask &= (df['device_type'] == device)
+        
+    if user_type != "すべて":
+        mask &= (df['user_type'] == user_type)
+        
+    if cv_status != "すべて":
+        mask &= (df['conversion_status'] == cv_status)
+        
+    if channel != "すべて":
+        mask &= (df['channel'] == channel)
+        
+    if source_medium != "すべて":
+        mask &= (df['source_medium'] == source_medium)
+        
+    return df[mask]
+
 # --- 分析対象のDataFrameを決定 ---
 # セッションに生成されたデータがあればそれを使用し、なければ元のCSVデータを使用します。
 if "generated_data" not in st.session_state or st.session_state.generated_data.empty:
@@ -933,33 +965,18 @@ if selected_analysis == "全体サマリー":
     df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # KPIカードやグラフ用のデータフィルタリング（期間＋LP）
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp_base_url:
-        filtered_df = filtered_df[filtered_df['lp_base_url'] == selected_lp_base_url]
-
-    # --- クロス分析用フィルター適用 ---
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_user_type != "すべて":
-        filtered_df = filtered_df[filtered_df['user_type'] == selected_user_type]
-
-    if selected_conversion_status != "すべて":
-        filtered_df = filtered_df[filtered_df['conversion_status'] == selected_conversion_status]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    if selected_source_medium != "すべて":
-        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
+    # キャッシュされたフィルタリング関数を使用
+    filtered_df = filter_dataframe(
+        df, 
+        start_date, 
+        end_date, 
+        selected_lp_base_url, 
+        selected_device, 
+        selected_user_type, 
+        selected_conversion_status, 
+        selected_channel, 
+        selected_source_medium
+    )
 
     # --- データダウンロード機能 ---
     st.markdown("##### フィルター適用後のデータをダウンロード")
@@ -3662,33 +3679,18 @@ elif selected_analysis == "時系列分析":
     df['conversion_status'] = np.where(df['session_id'].isin(conversion_session_ids), 'コンバージョン', '非コンバージョン')
 
     # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp:
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-
-    # --- クロス分析用フィルター適用 ---
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_user_type != "すべて":
-        filtered_df = filtered_df[filtered_df['user_type'] == selected_user_type]
-
-    if selected_conversion_status != "すべて":
-        filtered_df = filtered_df[filtered_df['conversion_status'] == selected_conversion_status]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    if selected_source_medium != "すべて":
-        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
+    # キャッシュされたフィルタリング関数を使用
+    filtered_df = filter_dataframe(
+        df, 
+        start_date, 
+        end_date, 
+        selected_lp, # Note: Variable name is selected_lp here, not selected_lp_base_url
+        selected_device, 
+        selected_user_type, 
+        selected_conversion_status, 
+        selected_channel, 
+        selected_source_medium
+    )
 
     # 比較機能は無効化
     comparison_df = None
@@ -4077,34 +4079,18 @@ elif selected_analysis == "デモグラフィック情報":
 
     st.markdown("---")
 
-    # データフィルタリング
-    filtered_df = df.copy()
-
-    # 期間フィルター
-    filtered_df = filtered_df[
-        (filtered_df['event_date'] >= pd.to_datetime(start_date)) &
-        (filtered_df['event_date'] <= pd.to_datetime(end_date))
-    ]
-
-    # LPフィルター
-    if selected_lp and selected_lp != "すべて":
-        filtered_df = filtered_df[filtered_df['page_location'] == selected_lp]
-    
-    # --- クロス分析用フィルター適用 ---
-    if selected_device != "すべて":
-        filtered_df = filtered_df[filtered_df['device_type'] == selected_device]
-
-    if selected_user_type != "すべて":
-        filtered_df = filtered_df[filtered_df['user_type'] == selected_user_type]
-
-    if selected_conversion_status != "すべて":
-        filtered_df = filtered_df[filtered_df['conversion_status'] == selected_conversion_status]
-
-    if selected_channel != "すべて":
-        filtered_df = filtered_df[filtered_df['channel'] == selected_channel]
-
-    if selected_source_medium != "すべて":
-        filtered_df = filtered_df[filtered_df['source_medium'] == selected_source_medium]
+    # キャッシュされたフィルタリング関数を使用
+    filtered_df = filter_dataframe(
+        df, 
+        start_date, 
+        end_date, 
+        selected_lp, # Note: Variable name is selected_lp here, not selected_lp_base_url
+        selected_device, 
+        selected_user_type, 
+        selected_conversion_status, 
+        selected_channel, 
+        selected_source_medium
+    )
 
     # 比較機能は無効化
     comparison_df = None
