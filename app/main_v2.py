@@ -5622,9 +5622,10 @@ elif selected_analysis == "学習テスト":
         st.session_state.quiz_submitted = False
 
     # クイズ難易度選択
+    # クイズ難易度選択
     quiz_difficulty = st.selectbox(
         "テスト難易度を選択してください:",
-        ['初級（穏やかな波）', '中級（乱高下）', '上級（急降下）'],
+        ['初級', '中級', '上級'],
         index=0,
         key="quiz_difficulty_selector"
     )
@@ -5676,6 +5677,40 @@ elif selected_analysis == "学習テスト":
             if submitted:
                 st.session_state.quiz_submitted = True
                 st.rerun()
+        
+        # 結果サマリー表示（フォームの外に出す）
+        if st.session_state.quiz_submitted:
+            # スコア計算
+            score = 0
+            total = len(st.session_state.quiz_data)
+            for i, q in enumerate(st.session_state.quiz_data):
+                # session_stateから回答を取得
+                user_choice = st.session_state.get(f"q_{i}")
+                correct_option = q['options'][q['answer']]
+                if user_choice == correct_option:
+                    score += 1
+            
+            # スコア表示
+            st.markdown("### 📊 テスト結果")
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                st.metric("スコア", f"{score} / {total}")
+            
+            with col2:
+                # 総評
+                if score == total:
+                    st.success("素晴らしい！全問正解です。データ分析のスキルは完璧です。")
+                elif score >= total * 0.8:
+                    st.success("大変よくできました！データの読み取りはほぼ完璧です。")
+                elif score >= total * 0.6:
+                    st.info("合格点です！間違えた箇所を復習して、さらに理解を深めましょう。")
+                else:
+                    st.warning("もう少しです。解説をよく読んで、データの見方を復習しましょう。")
+            
+            st.markdown("---")
+            # 各問題の解説はフォーム内のループで表示済みだが、
+            # フォーム送信後はrerunされるため、フォーム内のif st.session_state.quiz_submittedブロックで表示される。
+            # ここではサマリーだけを表示する。
 
     elif 'quiz_data' in st.session_state and not st.session_state.quiz_data:
         pass
