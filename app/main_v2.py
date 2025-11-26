@@ -490,7 +490,7 @@ st.sidebar.markdown("##### シミュレーション設定")
 if "custom_stay_time_mu" not in st.session_state:
     st.session_state.custom_stay_time_mu = 3.4
 if "custom_fv_exit_rate" not in st.session_state:
-    st.session_state.custom_fv_exit_rate = 0.4
+    st.session_state.custom_fv_exit_rate = 0.2 # Default 20%
 if "target_cvr" not in st.session_state:
     st.session_state.target_cvr = 3.0
 if "baseline_cvr" not in st.session_state:
@@ -616,7 +616,7 @@ custom_stay_mu = slider_and_input(
 
 custom_fv_exit = slider_and_input(
     "FV離脱率",
-    0.05, 0.9, 0.4, 0.01, # Min 0.05, Step 0.01
+    0.05, 0.9, 0.2, 0.01, # Min 0.05, Step 0.01, Default 0.2
     "custom_fv_exit_rate", "%.2f"
 )
 
