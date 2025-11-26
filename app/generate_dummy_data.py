@@ -119,6 +119,7 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     リアルなスワイプLPイベントデータを生成
     difficulty: '初級（穏やかな波）', '中級（乱高下）', '上級（急降下）'
     """
+    print(f"DEBUG: generate_dummy_data called with difficulty={difficulty}")
     # シナリオ設定のロードとマージ
     scenario_config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['標準（ベースライン）'])
     config = DEFAULT_CONFIG.copy()
