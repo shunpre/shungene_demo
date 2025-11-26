@@ -640,6 +640,14 @@ custom_fv_exit = slider_and_input(
     "custom_fv_exit_rate", "%.2f"
 )
 
+# Difficulty Mode Selector
+difficulty_mode = st.sidebar.selectbox(
+    "難易度設定",
+    ['初級（穏やかな波）', '中級（乱高下）', '上級（急降下）'],
+    index=0,
+    key="difficulty_mode_selector"
+)
+
 # Update session state from widgets
 # st.session_state.custom_cvr_multiplier = custom_cvr_mult # Removed
 # Values are already updated in session state via slider_and_input callbacks
@@ -670,7 +678,8 @@ if st.sidebar.button("ダミーデータを生成", key="global_generate_data", 
         st.session_state.generated_data = generate_dummy_data(
             scenario='カスタム（AI分析反映）',
             num_days=num_days_gen,
-            target_cvr=target_cvr_input / 100
+            target_cvr=target_cvr_input / 100,
+            difficulty=difficulty_mode
         )
         st.session_state.data_scenario = 'カスタム（AI分析反映）'
     

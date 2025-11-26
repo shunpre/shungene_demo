@@ -114,9 +114,10 @@ DEFAULT_CONFIG = {
     'info_jump_backflow_bonus': 0.6,
 }
 
-def generate_dummy_data(scenario: str = '標準（ベースライン）', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04):
+def generate_dummy_data(scenario: str = '標準（ベースライン）', num_days: int = 30, num_pages: int = 10, target_cvr: float = 0.04, difficulty: str = '初級（穏やかな波）'):
     """
     リアルなスワイプLPイベントデータを生成
+    difficulty: '初級（穏やかな波）', '中級（乱高下）', '上級（急降下）'
     """
     # シナリオ設定のロードとマージ
     scenario_config = SCENARIO_CONFIGS.get(scenario, SCENARIO_CONFIGS['標準（ベースライン）'])
@@ -124,7 +125,7 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     config.update(scenario_config)
     
     # CVR設定: 想定CVR x シナリオ倍率
-    base_cvr = target_cvr * config.get('cvr_multiplier', 1.0)
+    base_cvr_original = target_cvr * config.get('cvr_multiplier', 1.0)
 
     # 基準日時
     end_date = datetime.now()
@@ -162,14 +163,48 @@ def generate_dummy_data(scenario: str = '標準（ベースライン）', num_da
     total_sessions_approx = config['num_sessions_per_day_range'][1] * num_days
     user_id_pool = [f"user_{i:06d}" for i in range(int(total_sessions_approx / 1.5))] # リピート率考慮
 
+    # Crash Day for Advanced Mode (e.g., 7 days ago)
+    crash_day_index = num_days - 7
+
     for i in range(num_days):
         current_date = start_date + timedelta(days=i)
         weekday_name = current_date.strftime('%a')
+        
+        # Difficulty Logic: Adjust CVR and Volatility
+        daily_cvr_multiplier = 1.0
+        
+        if difficulty == '初級（穏やかな波）':
+            # Stable, slight random fluctuation (+- 10%)
+            daily_cvr_multiplier = random.uniform(0.9, 1.1)
+        
+        elif difficulty == '中級（乱高下）':
+            # High volatility (+- 40%), maybe some sine wave
+            import math
+            wave = math.sin(i / 2.0) * 0.2 # Sine wave
+            noise = random.uniform(-0.3, 0.3) # Large noise
+            daily_cvr_multiplier = 1.0 + wave + noise
+            daily_cvr_multiplier = max(0.2, daily_cvr_multiplier) # Prevent negative
+            
+        elif difficulty == '上級（急降下）':
+            # Stable then Crash
+            if i >= crash_day_index:
+                daily_cvr_multiplier = 0.4 # Drops to 40% performance
+            else:
+                daily_cvr_multiplier = random.uniform(0.9, 1.1)
+        
+        # Apply multiplier to base CVR for this day
+        base_cvr = base_cvr_original * daily_cvr_multiplier
         
         # セッション数決定
         weekday_factor = config['weekday_seasonality'].get(weekday_name[:3], 1.0)
         num_sessions_today = int(random.uniform(*config['num_sessions_per_day_range']) * weekday_factor)
         
+        # Apply difficulty multiplier to sessions too (optional, but realistic)
+        # For crash mode, maybe traffic stays same but CVR drops? Or both drop?
+        # Let's keep traffic mostly independent for now, but maybe slight drop in crash
+        if difficulty == '上級（急降下）' and i >= crash_day_index:
+             num_sessions_today = int(num_sessions_today * 0.8) # Traffic also dips slightly
+
         # ユーザー選択
         daily_user_ids = random.choices(user_id_pool, k=num_sessions_today) # 重複ありで選択（同日リピート）
 
