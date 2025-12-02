@@ -42,10 +42,31 @@ def generate_quiz_content(prompt):
     """
     return _safe_generate(prompt)
 
+def _get_mock_response(analysis_type):
+    """
+    Return a mock response when API is disabled.
+    """
+    return f"""
+### 【モックモード】{analysis_type}
+
+⚠️ **APIは現在無効化されています。**
+
+これはテスト用のダミーレスポンスです。実際のAPIリクエストは送信されていません。
+APIを有効にするには、サイドバーの「AIモデル設定」で「Gemini APIを有効にする」にチェックを入れてください。
+
+---
+**ダミー分析結果:**
+1.  **現状分析**: データは正常に読み込まれていますが、AIによる詳細分析はスキップされました。
+2.  **改善提案**: APIを有効にすると、ここに具体的な改善案が表示されます。
+3.  **考察**: モックモードでは課金は発生しません。UI/UXの確認にご利用ください。
+"""
+
 def analyze_overall_performance(kpi_data, comparison_data=None):
     """
     Analyze overall KPI performance.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("全体パフォーマンス分析")
     prompt = f"""
     You are an expert Web Analyst. Analyze the following KPI data for a Landing Page (LP).
     
@@ -71,6 +92,8 @@ def analyze_page_bottlenecks(page_stats_df):
     """
     Analyze page-level statistics to identify bottlenecks.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("ページボトルネック分析")
     # Convert DataFrame to string/dict for prompt
     stats_str = page_stats_df.to_markdown(index=False)
     
@@ -96,6 +119,8 @@ def analyze_device_performance(device_stats_df):
     """
     Analyze performance by device type.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("デバイス別パフォーマンス分析")
     stats_str = device_stats_df.to_markdown(index=False)
     
     prompt = f"""
@@ -119,6 +144,8 @@ def analyze_demographics(age_df, gender_df, region_df):
     """
     Analyze demographic data (Age, Gender, Region).
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("デモグラフィック分析")
     prompt = f"""
     Analyze the demographic profile of the LP visitors and their conversion rates.
     
@@ -146,6 +173,8 @@ def generate_improvement_proposal(kpi_data, page_stats_df, device_stats_df, targ
     """
     Generate a comprehensive improvement proposal.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("改善提案生成")
     prompt = f"""
     Based on the following comprehensive data, generate a detailed improvement proposal for the Landing Page.
     
@@ -178,6 +207,8 @@ def answer_user_question(context_data, question):
     """
     Answer a specific user question based on provided context.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("ユーザー質問回答")
     prompt = f"""
     You are an AI Analyst assistant. Answer the user's question based *only* on the provided data context.
     
@@ -195,6 +226,8 @@ def analyze_lpo_factors(kpi_data, page_stats_df, hearing_sheet_text, lp_text_con
     """
     Perform a comprehensive LPO factor analysis based on the user's detailed prompt.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("LPO要因分析")
     # Convert data to strings
     kpi_str = json.dumps(kpi_data, indent=2, default=str)
     page_stats_str = page_stats_df.to_markdown(index=False)
@@ -302,6 +335,8 @@ def analyze_ad_performance_expert(ad_stats_df, analysis_target):
     """
     Analyze Ad performance using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("広告パフォーマンス分析")
     stats_str = ad_stats_df.to_markdown(index=False)
     
     prompt = f"""
@@ -368,6 +403,8 @@ def analyze_ab_test_expert(ab_stats_df):
     """
     Analyze A/B Test results using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("A/Bテスト分析")
     stats_str = ab_stats_df.to_markdown(index=False)
     
     prompt = f"""
@@ -429,6 +466,8 @@ def analyze_interaction_expert(contribution_df):
     """
     Analyze Interaction data using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("インタラクション分析")
     stats_str = contribution_df.to_markdown(index=False)
     
     prompt = f"""
@@ -490,6 +529,8 @@ def analyze_video_scroll_expert(video_stats, scroll_stats):
     """
     Analyze Video and Scroll data using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("動画・スクロール分析")
     video_str = json.dumps(video_stats, indent=2, default=str) if video_stats else "動画データなし"
     scroll_str = scroll_stats.to_markdown(index=False)
     
@@ -556,6 +597,8 @@ def analyze_timeseries_expert(timeseries_df):
     """
     Analyze Time Series data using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("時系列トレンド分析")
     stats_str = timeseries_df.to_markdown(index=False)
     
     prompt = f"""
@@ -617,6 +660,8 @@ def analyze_demographics_expert(demo_df):
     """
     Analyze Demographics data using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("デモグラフィック詳細分析")
     stats_str = demo_df.to_markdown(index=False)
     
     prompt = f"""
@@ -678,6 +723,8 @@ def analyze_improvement_proposal_expert(lp_text_content, kpi_data, target_info):
     """
     Generate a comprehensive improvement proposal using the Expert Consultant persona.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("AIプロポーザル生成")
     # Convert data to strings
     kpi_str = json.dumps(kpi_data, indent=2, default=str)
     target_str = json.dumps(target_info, indent=2, default=str)
@@ -760,6 +807,19 @@ def analyze_product_characteristics(product_description):
     """
     Analyze product description to estimate CVR, target audience, and bottlenecks.
     """
+    if not st.session_state.get("api_enabled", True):
+        # Return a valid JSON string for mock mode
+        return json.dumps({
+            "target_audience": "【モック】30代〜40代のビジネスパーソン",
+            "estimated_cvr_range": "2.0% - 3.5%",
+            "bottlenecks": ["【モック】価格設定の妥当性が不明確", "【モック】導入メリットの具体性不足"],
+            "scenario_params": {
+                "cvr_multiplier": 1.0,
+                "stay_time_mu_base": 2.5,
+                "fv_exit_rate": 0.4
+            },
+            "reasoning": "【モック】これはAPI無効時のダミー分析結果です。"
+        }, ensure_ascii=False)
     prompt = f"""
     You are an expert Digital Marketing Strategist.
     Analyze the following product/service description to estimate key performance metrics for a Landing Page.
@@ -797,6 +857,8 @@ def chat_with_data(user_query, dataframe_summary):
     """
     Answer user questions based on the provided dataframe summary.
     """
+    if not st.session_state.get("api_enabled", True):
+        return _get_mock_response("データチャット")
     prompt = f"""
     You are an expert Data Analyst assistant.
     Answer the user's question based on the provided data summary.
