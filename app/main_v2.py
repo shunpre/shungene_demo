@@ -492,6 +492,23 @@ st.session_state.api_enabled = api_enabled
 
 if not api_enabled:
     st.sidebar.warning("⚠️ API無効（モックモード）")
+else:
+    # User API Key Input
+    user_api_key = st.sidebar.text_input(
+        "Gemini APIキー (必須)",
+        type="password",
+        placeholder="APIキーを入力してください",
+        help="ご自身のAPIキーを入力してください。このキーはAI分析に使用されます。",
+        key="user_gemini_api_key_input"
+    )
+    if user_api_key:
+        st.session_state.user_gemini_api_key = user_api_key
+    elif "user_gemini_api_key" in st.session_state:
+        # Clear if input is empty
+        del st.session_state.user_gemini_api_key
+    
+    if "user_gemini_api_key" not in st.session_state:
+        st.sidebar.error("⚠️ APIキーを入力してください")
 
 model_options = {
     "Gemini 3.0 Pro (Preview)": "gemini-3-pro-preview",

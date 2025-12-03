@@ -7,9 +7,11 @@ def get_gemini_model():
     """
     Initialize and return the Gemini model.
     """
-    api_key = st.secrets.get("gemini_api_key")
+    # Check for user-provided API key first
+    api_key = st.session_state.get("user_gemini_api_key")
+    
     if not api_key:
-        st.error("Gemini API key not found. Please add 'gemini_api_key' to .streamlit/secrets.toml")
+        st.error("Gemini API key not found. Please enter your API key in the sidebar.")
         return None
     
     try:
