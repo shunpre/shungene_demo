@@ -483,20 +483,20 @@ st.sidebar.markdown("---")
 
 
 # --- AI Model Selection ---
-    # --- AIモデル設定 ---
-    st.sidebar.markdown("### AIモデル設定")
-    
-    # API有効化トグル
-    api_enabled = st.sidebar.checkbox("Gemini APIを有効にする", value=True, key="api_enabled_toggle")
-    st.session_state.api_enabled = api_enabled
-    
-    if not api_enabled:
-        st.sidebar.warning("⚠️ API無効（モックモード）")
+# --- AIモデル設定 ---
+st.sidebar.markdown("### AIモデル設定")
 
-    model_options = {
-        "Gemini 3.0 Pro (Preview)": "gemini-3-pro-preview",
-        "Gemini 2.5 Pro": "gemini-2.5-pro"
-    }
+# API有効化トグル
+api_enabled = st.sidebar.checkbox("Gemini APIを有効にする", value=True, key="api_enabled_toggle")
+st.session_state.api_enabled = api_enabled
+
+if not api_enabled:
+    st.sidebar.warning("⚠️ API無効（モックモード）")
+
+model_options = {
+    "Gemini 3.0 Pro (Preview)": "gemini-3-pro-preview",
+    "Gemini 2.5 Pro": "gemini-2.5-pro"
+}
 selected_model_label = st.sidebar.selectbox(
     "使用するAIモデル",
     list(model_options.keys()),
